@@ -1,3 +1,36 @@
+## Measuring Curvature
+# You're getting very close to a final result! You have a thresholded image,
+# where you've estimated which pixels belong to the left and right lane lines
+# (shown in red and blue, respectively, below), and you've fit a polynomial to
+# those pixel positions. Next we'll compute the radius of curvature of the fit.
+
+# In the last exercise, you located the lane line pixels, used their x and y
+# pixel positions to fit a second order polynomial curve:
+
+#    f(y)=Ay^​2​​ +By+C
+
+# You're fitting for f(y), rather than f(x), because the lane lines in the
+# warped image are near vertical and may have the same x value for more than
+# one y value.
+
+## Radius of Curvature
+
+# The radius of curvature (awesome tutorial here) at any point x of the
+# function x=f(y) is given as follows:
+
+# In the case of the second order polynomial above, the first and second
+# derivatives are:
+
+# So, our equation for radius of curvature becomes:
+
+# The y values of your image increase from top to bottom, so if, for example,
+# you wanted to measure the radius of curvature closest to your vehicle, you
+# could evaluate the formula above at the y value corresponding to the bottom
+# of your image, or in Python, at yvalue = image.shape[0].
+
+## Sample Implementation
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 # Generate some fake data to represent lane-line pixels
