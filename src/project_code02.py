@@ -6,6 +6,7 @@ import matplotlib.image as mpimg
 import matplotlib.animation as animation
 import numpy as np
 import cv2
+from PIL import Image
 
 import glob
 import scipy as sc
@@ -154,8 +155,7 @@ def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap, angle_mi
 
 # Python 3 has support for cool math symbols.
 
-
-def weighted_img(img, initial_img, α=0.8, β=1.0, λ=0.0):
+def weighted_img(img, initial_img, alpha=0.8, beta=1.0, gamma=0.0):
     """
     `img` is the output of the hough_lines(), An image with lines drawn on it.
     Should be a blank image (all black) with lines drawn on it.
@@ -167,7 +167,7 @@ def weighted_img(img, initial_img, α=0.8, β=1.0, λ=0.0):
     initial_img * α + img * β + λ
     NOTE: initial_img and img must be the same shape!
     """
-    return cv2.addWeighted(initial_img, α, img, β, λ)
+    return cv2.addWeighted(initial_img, alpha, img, beta, gamma)
 
 
 def devide_points(x1, y1, x2, y2):
@@ -259,23 +259,58 @@ def dir_threshold(image, sobel_kernel=3, thresh=(0, np.pi/2)):
     return binary_output
 
 
-def hls_select(image, thresh=(0, 255)):
+def hls_select(image, hthresh=(0, 255), sthresh=(0, 255)):
     # 1) Convert to HLS color space
     # 2) Apply a threshold to the S channel
     # 3) Return a binary image of threshold result
     hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    h_channel = hls[:,:,0]
     s_channel = hls[:,:,2]
     binary_output = np.zeros_like(s_channel)
-    binary_output[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 1
+    binary_output[(((h_channel >= hthresh[0]) & (h_channel <= hthresh[1])) &
+                   ((s_channel >= sthresh[0]) & (s_channel <= sthresh[1])))] = 1
     return binary_output
 
 
 def warper(img, src, dst):
     # Compute and apply perpective transform
-    img_size = (img.shape[1], img.shape[0])
     M = cv2.getPerspectiveTransform(src, dst)
-    warped = cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_NEAREST)  # keep same size as input image
+    warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_NEAREST)  # keep same size as input image
     return warped
+
+
+
+# source and destination points
+# Given src and dst points, calculate the perspective transform matrix
+
+(width, height) = (1280, 720)
+center = width / 2 - 10
+magx = 320
+magy = 0
+src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])
+src = np.float32([[585, 460], [695, 460], [1127, 720], [203, 720]])
+dst = np.float32([[magx, magy], [width - magx, magy], [width-magx, height - magy], [magx, height - magy]])
+
+# src = np.float32([[585, 460], [203, 720], [1127, 720], [695, 460]])
+# dst = np.float32([[320, 0],   [320, 720], [ 960, 720], [960,   0]])
+
+# src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])
+# src = np.float32([[585, 460], [695, 460], [1127, 720], [203, 720]])
+# dst = np.float32([[320,   0], [960,   0], [ 960, 720], [320, 720]])
+
+M = cv2.getPerspectiveTransform(src, dst)
+
+# for file in ('straight_lines1.jpg', 'straight_lines2.jpg', 'test1.jpg', 'test2.jpg', 'test3.jpg', 'test4.jpg', 'test5.jpg', 'test6.jpg'):
+#     print(file)
+#     img = cv2.imread('../test_images/' + file)
+#     img = cv2.undistort(img, mtx, dist, None, mtx)
+#     warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
+#     cv2.imshow('frame', warped)
+#     # cv2.imwrite('../output_images/be_' + file, warped)
+#     if cv2.waitKey(1000) & 0xFF == ord('q'):
+#         break
+# cv2.destroyAllWindows()
+# exit(0)
 
 
 def process_image(image, weight=0.5):
@@ -292,57 +327,26 @@ def process_image(image, weight=0.5):
     ksize = 3  # Choose a larger odd number to smooth gradient measurements
 
     # Apply each of the thresholding functions
-    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(20, 100))
-    grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(20, 100))
-    mag_binary = mag_thresh(gray, sobel_kernel=ksize, mag_thresh=(30, 100))
-    dir_binary = dir_threshold(gray, sobel_kernel=ksize, thresh=(0.7, 1.3))
-    hls_binary = hls_select(undist, thresh=(170, 255))
+    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(20, 80))
+    grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(20, 80))
+    mag_binary = mag_thresh(gray, sobel_kernel=5, mag_thresh=(20, 100))
+    dir_binary = dir_threshold(gray, sobel_kernel=15, thresh=(0.7, 1.3))  # (0.7, 1.3))
+    hls_binary = hls_select(undist, hthresh=(15, 100), sthresh=(170, 255))
 
-    combined = np.zeros_like(dir_binary)
+    # combined = np.zeros_like(dir_binary)
+    combined = np.zeros((dir_binary.shape), dtype=np.uint8)
     # combined[((gradx == 1) & (grady == 1)) |
     #          ((mag_binary == 1) & (dir_binary == 1))] = 255
+    # combined[(((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1)))] = 255
     combined[((((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))) |
               (hls_binary == 1))] = 255
-
-
-
-
-    # histogram = np.sum(combined[combined.shape[0]//2:, :], axis=0)
-    # plt.plot(histogram)
-    # plt.show()
+    # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)
 
     # Perspective Transform
+    # warped = cv2.warpPerspective(undist, M, (undist.shape[1], undist.shape[0]), flags=cv2.INTER_NEAREST)
+    # return cv2.cvtColor(warped, cv2.COLOR_RGB2BGR)
 
 
-    offset = 100 # offset for dst points
-    # source and destination points
-    img_size = (combined.shape[1], combined.shape[0])
-    # src = np.float32([corners[0], corners[nx-1], corners[-1], corners[-nx]])
-    # dst = np.float32([[offset, offset],
-    #                   [img_size[0]-offset, offset], 
-    #                   [img_size[0]-offset, img_size[1]-offset], 
-    #                   [offset, img_size[1]-offset]])
-
-    level = img_size[0] / 2
-    center = img_size[1] / 2
-    width = 100
-    src = np.float32([[level, center - width / 2], [level, center + width / 2]
-                      [img_size[0], img_size[1]], [0, img_size[1]]])
-    dst = np.float32([[0, 0], [img_size[0], 0], [img_size[0], img_size[1]], [0, img_size[1]]])
-
-    # Given src and dst points, calculate the perspective transform matrix
-    M = cv2.getPerspectiveTransform(src, dst)
-    # Warp the image using OpenCV warpPerspective()
-    warped = warper(undist, src, dst)
-    binary_warped = warper(combined, src, dst)
-
-
-
-    return warped
-    return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2RGB)
-
-    sximg = cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)
-    return sximg
 
     
 
@@ -352,36 +356,21 @@ def process_image(image, weight=0.5):
     # Detect lane lines
     # -> https://classroom.udacity.com/nanodegrees/nd013/parts/fbf77062-5703-404e-b60c-95b78b2f3f9e/modules/2b62a1c3-e151-4a0e-b6b6-e424fa46ceab/lessons/40ec78ee-fb7c-4b53-94a8-028c5c60b858/concepts/c41a4b6b-9e57-44e6-9df9-7e4e74a1a49a
 
-
-
     # Determine the lane curvature
     # filter curvature values
-
 
     # detect offset of the car position
 
 
 
-
-
-
     # Tracking -> tips
-
-    #
-
 
     # Sanity Check
     # - Checking that they have similar curvature
     # - Checking that they are separated by approximately the right distance horizontally
     # - Checking that they are roughly parallel
 
-
-
-
     # Look-Ahead Filter
-
-
-
 
     # Reset
     # If your sanity checks reveal that the lane lines you've detected are
@@ -395,105 +384,51 @@ def process_image(image, weight=0.5):
 
     # Smoothing
 
-
-
     # Drawing -> tips
 
 
 
-
-
-    sximg = cv2.cvtColor(binary_output, cv2.COLOR_GRAY2RGB)
-    return sximg
-
-
-    abs_sobelx = np.absolute(sobelx)
-    scaled_sobel = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
-    thresh_min = 20
-    thresh_max = 100
-    sxbinary = np.zeros_like(scaled_sobel)
-    sxbinary[(scaled_sobel >= thresh_min) & (scaled_sobel <= thresh_max)] = 255
-
-    sximg = cv2.cvtColor(sxbinary, cv2.COLOR_GRAY2RGB)
-    return sximg
-
-
-    # 4) If corners found: 
-    if ret == True:
-        # a) draw corners
-        cv2.drawChessboardCorners(undist, (nx, ny), corners, ret)
-
-        # b) define 4 source points src = np.float32([[,],[,],[,],[,]])
-        img_size = (gray.shape[1], gray.shape[0])
-        src = np.float32([corners[0], corners[nx-1], corners[-1], corners[-nx]])
-                
-                 #Note: you could pick any four of the detected corners 
-                 # as long as those four corners define a rectangle
-                 #One especially smart way to do this would be to use four well-chosen
-                 # corners that were automatically detected during the undistortion steps
-                 #We recommend using the automatic detection of corners in your code
-        # c) define 4 destination points dst = np.float32([[,],[,],[,],[,]])
-        offset = 100
-        dst = np.float32([[offset, offset], [img_size[0]-offset, offset], 
-                         [img_size[0]-offset, img_size[1]-offset], 
-                         [offset, img_size[1]-offset]])
-
-        # d) use cv2.getPerspectiveTransform() to get M, the transform matrix
-        M = cv2.getPerspectiveTransform(src, dst)
-        
-        # e) use cv2.warpPerspective() to warp your image to a top-down view
-        warped = cv2.warpPerspective(undist, M, img_size)
-        
-    #delete the next two lines
-    #M = None
-    #warped = np.copy(img) 
-    return warped, M
+    binary_warped = warper(combined, src, dst)
+    return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2RGB)
+    return warped
 
 
 
-
-
-    result = undist
-    return result
-
-
-
+######################################
 # process frame by frame
 
-global frame_time
-frame_time = 0
+# clip1 = VideoFileClip('../challenge_video.mp4')
+# clip1 = VideoFileClip('../project_video.mp4')
+# clip1 = VideoFileClip('../harder_challenge_video.mp4')
 
-white_output = '/Users/ichikihiroshi/CarND-Advanced-Lane-Lines/challenge_video_out.mp4'
-cap = cv2.VideoCapture('../challenge_video.mp4')
-
-while(cap.isOpened()):
-    cap.set(cv2.CAP_PROP_POS_MSEC, frame_time)
-    msec = cap.get(cv2.CAP_PROP_POS_MSEC)
-    print('{:5.0f} msec'.format(msec))
-    frame_time += 100
-
-    ret, frame = cap.read()
-    if ret:
-        result = process_image(frame, weight=0.5)
-        img = cv2.vconcat([cv2.resize(frame, (800, 380)),
-                           cv2.resize(result, (800, 380))])
-        cv2.imshow('frame', img)
-    else:
-        break
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+for file in ('../project_video.mp4', '../challenge_video.mp4', '../harder_challenge_video.mp4'):
+    clip1 = VideoFileClip(file)
+    frameno = 0
+    for frame in clip1.iter_frames():
+        if frameno % 10 == 0:
+            print('frameno: {:5.0f}'.format(frameno))
+            result = process_image(frame)
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            img = cv2.vconcat([cv2.resize(frame, (800, 380)),
+                               cv2.resize(result, (800, 380))])
+            # cv2.imshow('result', result)
+            cv2.imshow('frame', img)
+    
+        frameno += 1
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 cap.release()
 cv2.destroyAllWindows()
 exit(0)
 
+######################################
 
-
-# white_output = '/Users/ichikihiroshi/CarND-Advanced-Lane-Lines/project_video_out.mp4'
-# clip1 = VideoFileClip('../project_video.mp4')
-# white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
-# white_clip.write_videofile(white_output, audio=False)
-# exit(0)
+white_output = '/Users/ichikihiroshi/CarND-Advanced-Lane-Lines/project_video_out.mp4'
+clip1 = VideoFileClip('../project_video.mp4')
+white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+white_clip.write_videofile(white_output, audio=False)
+exit(0)
 
 
 white_output = '/Users/ichikihiroshi/CarND-Advanced-Lane-Lines/challenge_video_out.mp4'
