@@ -11,7 +11,7 @@ window_width = 50
 window_height = 80 # Break image into 9 vertical layers since image height is 720
 margin = 100 # How much to slide left and right for searching
 
-def window_mask(width, height, img_ref, center,level):
+def window_mask(width, height, img_ref, center, level):
     output = np.zeros_like(img_ref)
     output[int(img_ref.shape[0]-(level+1)*height):int(img_ref.shape[0]-level*height),max(0,int(center-width/2)):min(int(center+width/2),img_ref.shape[1])] = 1
     return output
