@@ -259,6 +259,25 @@ def dir_threshold(image, sobel_kernel=3, thresh=(0, np.pi/2)):
     return binary_output
 
 
+def hls_select(image, thresh=(0, 255)):
+    # 1) Convert to HLS color space
+    # 2) Apply a threshold to the S channel
+    # 3) Return a binary image of threshold result
+    hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    s_channel = hls[:,:,2]
+    binary_output = np.zeros_like(s_channel)
+    binary_output[(s_channel >= thresh[0]) & (s_channel <= thresh[1])] = 1
+    return binary_output
+
+
+def warper(img, src, dst):
+    # Compute and apply perpective transform
+    img_size = (img.shape[1], img.shape[0])
+    M = cv2.getPerspectiveTransform(src, dst)
+    warped = cv2.warpPerspective(img, M, img_size, flags=cv2.INTER_NEAREST)  # keep same size as input image
+    return warped
+
+
 def process_image(image, weight=0.5):
 
     # 1) Undistort using mtx and dist
@@ -277,46 +296,51 @@ def process_image(image, weight=0.5):
     grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(20, 100))
     mag_binary = mag_thresh(gray, sobel_kernel=ksize, mag_thresh=(30, 100))
     dir_binary = dir_threshold(gray, sobel_kernel=ksize, thresh=(0.7, 1.3))
+    hls_binary = hls_select(undist, thresh=(170, 255))
 
     combined = np.zeros_like(dir_binary)
-    combined[((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))] = 255
+    # combined[((gradx == 1) & (grady == 1)) |
+    #          ((mag_binary == 1) & (dir_binary == 1))] = 255
+    combined[((((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))) |
+              (hls_binary == 1))] = 255
+
+
+
+
+    # histogram = np.sum(combined[combined.shape[0]//2:, :], axis=0)
+    # plt.plot(histogram)
+    # plt.show()
+
+    # Perspective Transform
+
+
+    offset = 100 # offset for dst points
+    # source and destination points
+    img_size = (combined.shape[1], combined.shape[0])
+    src = np.float32([corners[0], corners[nx-1], corners[-1], corners[-nx]])
+    dst = np.float32([[offset, offset],
+                      [img_size[0]-offset, offset], 
+                      [img_size[0]-offset, img_size[1]-offset], 
+                      [offset, img_size[1]-offset]])
+    dst = np.float32([0, 0], [img_size[0], 0],
+    # Given src and dst points, calculate the perspective transform matrix
+    M = cv2.getPerspectiveTransform(src, dst)
+    # Warp the image using OpenCV warpPerspective()
+    warped = warper(undist, src, dst)
+    binary_warped = warper(combined, src, dst)
+
+
+
+    return warped
+    return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2RGB)
 
     sximg = cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)
     return sximg
 
- # cv2.error:
- # /Users/jenkins/miniconda/1/x64/conda-bld/conda_1486587097465/work/opencv-3.1.0/modules/imgproc/src/color.cpp:7935:
- # error: (-215) depth == CV_8U || depth == CV_16U || depth == CV_32F in
- # function cvtColor
-
-
-    # 3) Sobel filter
-    sobel_kernel = 3
-    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
-    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
-    # Calculate the gradient magnitude
-
-    # gradmag = np.sqrt(sobelx**2 + sobely**2)
-    # scale_factor = np.max(gradmag) / 255
-    # gradmag = (gradmag/scale_factor).astype(np.uint8)  # Rescale to 8 bit
-    # Create a binary image of ones where threshold is met, zeros otherwise
-    # mag_thresh = [20, 100]
-    # binary_output = np.zeros_like(gradmag)
-    # binary_output[(gradmag >= mag_thresh[0]) & (gradmag <= mag_thresh[1])] = 255
-
-    dir_thresh = [0.7, 1.3]
-    absgraddir = np.arctan2(np.absolute(sobely), np.absolute(sobelx))
-    binary_output = np.zeros_like(absgraddir)
-    binary_output[(absgraddir >= dir_thresh[0]) & (absgraddir <= dir_thresh[1])] = 255
-
-
-
-    # Thresholding
-    # Color/gradient threshold
-
-
-    # Perspective Transform
     
+
+
+
 
     # Detect lane lines
     # -> https://classroom.udacity.com/nanodegrees/nd013/parts/fbf77062-5703-404e-b60c-95b78b2f3f9e/modules/2b62a1c3-e151-4a0e-b6b6-e424fa46ceab/lessons/40ec78ee-fb7c-4b53-94a8-028c5c60b858/concepts/c41a4b6b-9e57-44e6-9df9-7e4e74a1a49a

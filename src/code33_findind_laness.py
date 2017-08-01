@@ -1,25 +1,48 @@
-Locate the Lane Lines and Fit a Polynomial
-Thresholded and perspective transformed image
-Thresholded and perspective transformed image
-You now have a thresholded warped image and you're ready to map out the lane lines! There are many ways you could go about this, but here's one example of how you might do it:
+# Locate the Lane Lines and Fit a Polynomial
 
-Line Finding Method: Peaks in a Histogram
+# Thresholded and perspective transformed image
 
-After applying calibration, thresholding, and a perspective transform to a road image, you should have a binary image where the lane lines stand out clearly. However, you still need to decide explicitly which pixels are part of the lines and which belong to the left line and which belong to the right line.
+# You now have a thresholded warped image and you're ready to map out the lane
+# lines! There are many ways you could go about this, but here's one example of
+# how you might do it:
 
-I first take a histogram along all the columns in the lower half of the image like this:
+## Line Finding Method: Peaks in a Histogram
+
+# After applying calibration, thresholding, and a perspective transform to a
+# road image, you should have a binary image where the lane lines stand out
+# clearly. However, you still need to decide explicitly which pixels are part
+# of the lines and which belong to the left line and which belong to the right
+# line.
+
+# I first take a histogram along all the columns in the lower half of the image like this:
 
 import numpy as np
 histogram = np.sum(img[img.shape[0]//2:,:], axis=0)
 plt.plot(histogram)
-The result looks like this:
 
-Sliding Window
-With this histogram I am adding up the pixel values along each column in the image. In my thresholded binary image, pixels are either 0 or 1, so the two most prominent peaks in this histogram will be good indicators of the x-position of the base of the lane lines. I can use that as a starting point for where to search for the lines. From that point, I can use a sliding window, placed around the line centers, to find and follow the lines up to the top of the frame.
+## The result looks like this:
 
-Here is a short animation showing this method:
-Implement Sliding Windows and Fit a Polynomial
-Suppose you've got a warped binary image called binary_warped and you want to find which "hot" pixels are associated with the lane lines. Here's a basic implementation of the method shown in the animation above. You should think about how you could improve this implementation to make sure you can find the lines as robustly as possible!
+### Sliding Window
+
+# With this histogram I am adding up the pixel values along each column in the
+# image. In my thresholded binary image, pixels are either 0 or 1, so the two
+# most prominent peaks in this histogram will be good indicators of the
+# x-position of the base of the lane lines. I can use that as a starting point
+# for where to search for the lines. From that point, I can use a sliding
+# window, placed around the line centers, to find and follow the lines up to
+# the top of the frame.
+
+# Here is a short animation showing this method:
+
+## Implement Sliding Windows and Fit a Polynomial
+
+# Suppose you've got a warped binary image called binary_warped and you want to
+# find which "hot" pixels are associated with the lane lines. Here's a basic
+# implementation of the method shown in the animation above. You should think
+# about how you could improve this implementation to make sure you can find the
+# lines as robustly as possible!
+
+
 
 import numpy as np
 import cv2
@@ -92,8 +115,9 @@ righty = nonzeroy[right_lane_inds]
 # Fit a second order polynomial to each
 left_fit = np.polyfit(lefty, leftx, 2)
 right_fit = np.polyfit(righty, rightx, 2)
-Visualization
-At this point, you're done! But here is how you can visualize the result as well:
+
+## Visualization
+# At this point, you're done! But here is how you can visualize the result as well:
 
 # Generate x and y values for plotting
 ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
@@ -107,10 +131,14 @@ plt.plot(left_fitx, ploty, color='yellow')
 plt.plot(right_fitx, ploty, color='yellow')
 plt.xlim(0, 1280)
 plt.ylim(720, 0)
-The output should look something like this:
 
-Skip the sliding windows step once you know where the lines are
-Now you know where the lines are you have a fit! In the next frame of video you don't need to do a blind search again, but instead you can just search in a margin around the previous line position like this:
+# The output should look something like this:
+
+# Skip the sliding windows step once you know where the lines are
+# Now you know where the lines are you have a fit! In the next frame of video
+# you don't need to do a blind search again, but instead you can just search in
+# a margin around the previous line position like this:
+
 
 # Assume you now have a new warped binary image 
 # from the next frame of video (also called "binary_warped")
@@ -134,7 +162,9 @@ right_fit = np.polyfit(righty, rightx, 2)
 ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
 left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
 right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-And you're done! But let's visualize the result here as well
+
+# And you're done! But let's visualize the result here as well
+
 # Create an image to draw on and an image to show the selection window
 out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
 window_img = np.zeros_like(out_img)
@@ -160,6 +190,13 @@ plt.plot(left_fitx, ploty, color='yellow')
 plt.plot(right_fitx, ploty, color='yellow')
 plt.xlim(0, 1280)
 plt.ylim(720, 0)
-And the output should look something like this:
 
-The green shaded area shows where we searched for the lines this time. So, once you know where the lines are in one frame of video, you can do a highly targeted search for them in the next frame. This is equivalent to using a customized region of interest for each frame of video, and should help you track the lanes through sharp curves and tricky conditions. If you lose track of the lines, go back to your sliding windows search or other method to rediscover them.
+# And the output should look something like this:
+
+# The green shaded area shows where we searched for the lines this time. So,
+# once you know where the lines are in one frame of video, you can do a highly
+# targeted search for them in the next frame. This is equivalent to using a
+# customized region of interest for each frame of video, and should help you
+# track the lanes through sharp curves and tricky conditions. If you lose track
+# of the lines, go back to your sliding windows search or other method to
+# rediscover them.

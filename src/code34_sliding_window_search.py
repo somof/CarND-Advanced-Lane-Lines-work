@@ -35,21 +35,21 @@ def find_window_centroids(image, window_width, window_height, margin):
     
     # Go through each layer looking for max pixel locations
     for level in range(1,(int)(warped.shape[0]/window_height)):
-	    # convolve the window into the vertical slice of the image
-	    image_layer = np.sum(warped[int(warped.shape[0]-(level+1)*window_height):int(warped.shape[0]-level*window_height),:], axis=0)
-	    conv_signal = np.convolve(window, image_layer)
-	    # Find the best left centroid by using past left center as a reference
-	    # Use window_width/2 as offset because convolution signal reference is at right side of window, not center of window
-	    offset = window_width/2
-	    l_min_index = int(max(l_center+offset-margin,0))
-	    l_max_index = int(min(l_center+offset+margin,warped.shape[1]))
-	    l_center = np.argmax(conv_signal[l_min_index:l_max_index])+l_min_index-offset
-	    # Find the best right centroid by using past right center as a reference
-	    r_min_index = int(max(r_center+offset-margin,0))
-	    r_max_index = int(min(r_center+offset+margin,warped.shape[1]))
-	    r_center = np.argmax(conv_signal[r_min_index:r_max_index])+r_min_index-offset
-	    # Add what we found for that layer
-	    window_centroids.append((l_center,r_center))
+        # convolve the window into the vertical slice of the image
+        image_layer = np.sum(warped[int(warped.shape[0]-(level+1)*window_height):int(warped.shape[0]-level*window_height),:], axis=0)
+        conv_signal = np.convolve(window, image_layer)
+        # Find the best left centroid by using past left center as a reference
+        # Use window_width/2 as offset because convolution signal reference is at right side of window, not center of window
+        offset = window_width/2
+        l_min_index = int(max(l_center+offset-margin,0))
+        l_max_index = int(min(l_center+offset+margin,warped.shape[1]))
+        l_center = np.argmax(conv_signal[l_min_index:l_max_index])+l_min_index-offset
+        # Find the best right centroid by using past right center as a reference
+        r_min_index = int(max(r_center+offset-margin,0))
+        r_max_index = int(min(r_center+offset+margin,warped.shape[1]))
+        r_center = np.argmax(conv_signal[r_min_index:r_max_index])+r_min_index-offset
+        # Add what we found for that layer
+        window_centroids.append((l_center,r_center))
 
     return window_centroids
 
@@ -62,14 +62,14 @@ if len(window_centroids) > 0:
     l_points = np.zeros_like(warped)
     r_points = np.zeros_like(warped)
 
-    # Go through each level and draw the windows 	
+    # Go through each level and draw the windows     
     for level in range(0,len(window_centroids)):
         # Window_mask is a function to draw window areas
-	    l_mask = window_mask(window_width,window_height,warped,window_centroids[level][0],level)
-	    r_mask = window_mask(window_width,window_height,warped,window_centroids[level][1],level)
-	    # Add graphic points from window mask here to total pixels found 
-	    l_points[(l_points == 255) | ((l_mask == 1) ) ] = 255
-	    r_points[(r_points == 255) | ((r_mask == 1) ) ] = 255
+        l_mask = window_mask(window_width,window_height,warped,window_centroids[level][0],level)
+        r_mask = window_mask(window_width,window_height,warped,window_centroids[level][1],level)
+        # Add graphic points from window mask here to total pixels found 
+        l_points[(l_points == 255) | ((l_mask == 1) ) ] = 255
+        r_points[(r_points == 255) | ((r_mask == 1) ) ] = 255
 
     # Draw the results
     template = np.array(r_points+l_points,np.uint8) # add both left and right window pixels together
