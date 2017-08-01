@@ -317,12 +317,19 @@ def process_image(image, weight=0.5):
     offset = 100 # offset for dst points
     # source and destination points
     img_size = (combined.shape[1], combined.shape[0])
-    src = np.float32([corners[0], corners[nx-1], corners[-1], corners[-nx]])
-    dst = np.float32([[offset, offset],
-                      [img_size[0]-offset, offset], 
-                      [img_size[0]-offset, img_size[1]-offset], 
-                      [offset, img_size[1]-offset]])
-    dst = np.float32([0, 0], [img_size[0], 0],
+    # src = np.float32([corners[0], corners[nx-1], corners[-1], corners[-nx]])
+    # dst = np.float32([[offset, offset],
+    #                   [img_size[0]-offset, offset], 
+    #                   [img_size[0]-offset, img_size[1]-offset], 
+    #                   [offset, img_size[1]-offset]])
+
+    level = img_size[0] / 2
+    center = img_size[1] / 2
+    width = 100
+    src = np.float32([[level, center - width / 2], [level, center + width / 2]
+                      [img_size[0], img_size[1]], [0, img_size[1]]])
+    dst = np.float32([[0, 0], [img_size[0], 0], [img_size[0], img_size[1]], [0, img_size[1]]])
+
     # Given src and dst points, calculate the perspective transform matrix
     M = cv2.getPerspectiveTransform(src, dst)
     # Warp the image using OpenCV warpPerspective()
