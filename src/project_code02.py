@@ -299,6 +299,7 @@ dst = np.float32([[magx, magy], [width - magx, magy], [width-magx, height - magy
 # dst = np.float32([[320,   0], [960,   0], [ 960, 720], [320, 720]])
 
 M = cv2.getPerspectiveTransform(src, dst)
+Minv = cv2.getPerspectiveTransform(dst, src)
 
 # for file in ('straight_lines1.jpg', 'straight_lines2.jpg', 'test1.jpg', 'test2.jpg', 'test3.jpg', 'test4.jpg', 'test5.jpg', 'test6.jpg'):
 #     print(file)
@@ -470,7 +471,6 @@ def process_image(image, weight=0.5):
     left_fitx = left_fit[0] * ploty**2 + left_fit[1] * ploty + left_fit[2]
     right_fitx = right_fit[0] * ploty**2 + right_fit[1] * ploty + right_fit[2]
 
-    print(left_fitx)
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
     # return out_img  # debug code
@@ -507,12 +507,53 @@ def process_image(image, weight=0.5):
     # # return output  # debug code
     #
 
+    # Plot up the fake data
+    # mark_size = 3
+    # plt.plot(leftx, lefty, 'o', color='red', markersize=mark_size)
+    # plt.plot(rightx, righty, 'o', color='blue', markersize=mark_size)
+    # plt.xlim(0, 1280)
+    # plt.ylim(0, 720)
+    # plt.plot(left_fitx, ploty, color='green', linewidth=3)
+    # plt.plot(right_fitx, ploty, color='green', linewidth=3)
+    # plt.show()
 
+    # out_img[lefty, leftx] = [0, 255, 0]
+    # out_img[righty, rightx] = [0, 255, 0]
 
-    # Detect lane lines
-    # -> https://classroom.udacity.com/nanodegrees/nd013/parts/fbf77062-5703-404e-b60c-95b78b2f3f9e/modules/2b62a1c3-e151-4a0e-b6b6-e424fa46ceab/lessons/40ec78ee-fb7c-4b53-94a8-028c5c60b858/concepts/c41a4b6b-9e57-44e6-9df9-7e4e74a1a49a
+    llines = []
+    rlines = []
+    step = 5
+    for y in range(0, 720 - step, step):
+        x1 = int(left_fitx[y])
+        x2 = int(left_fitx[y + step])
+        llines.append([[x1, y, x2, y + step]])
+        x1 = int(right_fitx[y])
+        x2 = int(right_fitx[y + step])
+        rlines.append([[x1, y, x2, y + step]])
 
-    # Determine the lane curvature
+    draw_lines(out_img, llines, color=[255, 120, 120], thickness=3)
+    draw_lines(out_img, rlines, color=[120, 120, 255], thickness=3)
+        
+    # 6) Determine the lane curvature
+    y_eval = np.max(ploty)
+    left_curverad = ((1 + (2*left_fit[0]*y_eval + left_fit[1])**2)**1.5) / np.absolute(2*left_fit[0])
+    right_curverad = ((1 + (2*right_fit[0]*y_eval + right_fit[1])**2)**1.5) / np.absolute(2*right_fit[0])
+    # print(left_curverad, right_curverad)
+
+    # Define conversions in x and y from pixels space to meters
+    ym_per_pix = 30/720 # meters per pixel in y dimension
+    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+    # Fit new polynomials to x,y in world space
+    left_fit_cr = np.polyfit(ploty * ym_per_pix, left_fitx * xm_per_pix, 2)
+    right_fit_cr = np.polyfit(ploty * ym_per_pix, right_fitx * xm_per_pix, 2)
+    # Calculate the new radii of curvature
+    left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval * ym_per_pix + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_cr[0])
+    right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval * ym_per_pix + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit_cr[0])
+    # Now our radius of curvature is in meters
+    print(left_curverad, 'm', right_curverad, 'm')
+    # Example values: 632.1 m    626.2 m
+
     # filter curvature values
 
     # detect offset of the car position
@@ -549,34 +590,30 @@ def process_image(image, weight=0.5):
 
 
 
-    return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2RGB)
-    return warped
 
 
 
 ######################################
-# process frame by frame
+# process frame by frame for developing
 
-# clip1 = VideoFileClip('../challenge_video.mp4')
-# clip1 = VideoFileClip('../project_video.mp4')
-# clip1 = VideoFileClip('../harder_challenge_video.mp4')
-
-for file in ('../project_video.mp4', '../challenge_video.mp4', '../harder_challenge_video.mp4'):
-    clip1 = VideoFileClip(file)
-    frameno = 0
-    for frame in clip1.iter_frames():
-        if frameno % 10 == 0:
-            print('frameno: {:5.0f}'.format(frameno))
-            result = process_image(frame)
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            img = cv2.vconcat([cv2.resize(frame, (800, 380)),
-                               cv2.resize(result, (800, 380))])
-            # cv2.imshow('result', result)
-            cv2.imshow('frame', img)
-    
-        frameno += 1
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+# for file in ('LegacyVideo_20170725_135613.mp4', 'LegacyVideo_20170626_140342.mp4', 'LegacyVideo_20170622_144939.mp4'):
+for l in range(1, 20):
+    for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+        clip1 = VideoFileClip('../' + file)
+        frameno = 0
+        for frame in clip1.iter_frames():
+            if frameno % 10 == 0 and frameno < 1000:
+                print('frameno: {:5.0f}'.format(frameno))
+                result = process_image(frame)
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                img = cv2.vconcat([cv2.resize(frame, (800, 380)),
+                                   cv2.resize(result, (800, 380))])
+                # cv2.imshow('result', result)
+                cv2.imshow('frame', img)
+        
+            frameno += 1
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
 cv2.destroyAllWindows()
 exit(0)

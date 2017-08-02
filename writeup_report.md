@@ -57,6 +57,88 @@ The goals / steps of this project are the following:
 
 ###1.1 Computation of the camera calibration matrix and distortion coefficients 
 
+The code for this step is contained  in "project_code01.py".
+
+objp = np.zeros((6*9, 3), np.float32)
+objp[:, :2] = np.mgrid[0:9, 0:6].T.reshape(-1, 2)
+
+
+It corrects "3D object points" and "2D image points"
+I start by preparing "object points", 
+which will be the (x, y, z) coordinates of the chessboard corners in the world. 
+
+
+    # Find the chessboard corners
+    ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
+
+# Do camera calibration given object points and image points
+ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
+
+cv2.calibrateCamera()を使います。この関数は、カメラ行列、歪み係数、回転と並進ベクトルなどを返します。
+
+
+Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.
+
+Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  
+`imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+
+I then used the output `objpoints` and `imgpoints` to compute the
+camera calibration and distortion coefficients using the
+`cv2.calibrateCamera()` function.  
+I applied this distortion
+correction to the test image using the `cv2.undistort()` function and
+obtained this result:
+
+
+img = cv2.imread('../camera_cal/calibration1.jpg')
+
+<img width=600 src="fig/report_sec1_01.jpg">
+
+
+
+```
+import numpy as np
+import cv2
+import glob
+
+# termination criteria
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
+objp = np.zeros((6*7,3), np.float32)
+objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)
+
+# Arrays to store object points and image points from all the images.
+objpoints = [] # 3d point in real world space
+imgpoints = [] # 2d points in image plane.
+
+images = glob.glob('*.jpg')
+
+for fname in images:
+    img = cv2.imread(fname)
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+    # Find the chess board corners
+    ret, corners = cv2.findChessboardCorners(gray, (7,6),None)
+
+    # If found, add object points, image points (after refining them)
+    if ret == True:
+        objpoints.append(objp)
+
+        cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+        imgpoints.append(corners)
+
+        # Draw and display the corners
+        cv2.drawChessboardCorners(img, (7,6), corners2,ret)
+        cv2.imshow('img',img)
+        cv2.waitKey(500)
+
+cv2.destroyAllWindows()
+```
+
+
+
+
   チェッカーボードの補正用係数を計算する
   note these are 9x6 chessboard images, unlike the 8x6 images used in the lesson
 

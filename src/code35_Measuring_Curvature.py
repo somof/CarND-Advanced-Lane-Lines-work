@@ -66,6 +66,10 @@ plt.gca().invert_yaxis() # to visualize as we do the images
 
 
 
+# Now we have polynomial fits and we can calculate the radius of curvature as
+# follows:
+
+
 # Define y-value where we want radius of curvature
 # I'll choose the maximum y-value, corresponding to the bottom of the image
 y_eval = np.max(ploty)
@@ -74,7 +78,23 @@ right_curverad = ((1 + (2*right_fit[0]*y_eval + right_fit[1])**2)**1.5) / np.abs
 print(left_curverad, right_curverad)
 # Example values: 1926.74 1908.48
 
-
+# But now we need to stop and think... We've calculated the radius of curvature
+# based on pixel values, so the radius we are reporting is in pixel space,
+# which is not the same as real world space. So we actually need to repeat this
+# calculation after converting our x and y values to real world space.
+#
+# This involves measuring how long and wide the section of lane is that we're
+# projecting in our warped image. We could do this in detail by measuring out
+# the physical lane in the field of view of the camera, but for this project,
+# you can assume that if you're projecting a section of lane similar to the
+# images above, the lane is about 30 meters long and 3.7 meters wide. Or, if
+# you prefer to derive a conversion from pixel space to world space in your own
+# images, compare your images with U.S. regulations that require a minimum lane
+# width of 12 feet or 3.7 meters, and the dashed lane lines are 10 feet or 3
+# meters long each.
+#
+# So here's a way to repeat the calculation of radius of curvature after
+# correcting for scale in x and y:
 
 # Define conversions in x and y from pixels space to meters
 ym_per_pix = 30/720 # meters per pixel in y dimension
