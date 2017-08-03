@@ -273,6 +273,16 @@ def hls_select(image, hthresh=(0, 255), sthresh=(0, 255), ithresh=(0, 255)):
                    ((i_channel >= ithresh[0]) & (i_channel <= ithresh[1])))] = 1
     return binary_output
 
+def rgb_select(image, rthresh=(0, 255), gthresh=(0, 255), bthresh=(0, 255)):
+    b_channel = image[:, :, 0]
+    g_channel = image[:, :, 1]
+    r_channel = image[:, :, 2]
+    binary_output = np.zeros_like(g_channel)
+    binary_output[(((r_channel >= rthresh[0]) & (r_channel <= rthresh[1])) &
+                   ((g_channel >= gthresh[0]) & (g_channel <= gthresh[1])) &
+                   ((b_channel >= bthresh[0]) & (b_channel <= bthresh[1])))] = 1
+    return binary_output
+
 
 def warper(img, src, dst):
     # Compute and apply perpective transform
@@ -372,11 +382,11 @@ def find_window_centroids(image, window_width, window_height, margin):
 def process_image(image, weight=0.5):
 
     # 1) Undistort using mtx and dist
-    # undist = cv2.undistort(image, mtx, dist, None, mtx)
-    undist = image
+    undist = cv2.undistort(image, mtx, dist, None, mtx)
+    # undist = image
 
     # 2) Convert to grayscale
-    gray = cv2.cvtColor(undist, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(undist, cv2.COLOR_RGB2GRAY)
 
     # 3) Create binary image via Combining Threshold
 
@@ -384,31 +394,34 @@ def process_image(image, weight=0.5):
     ksize = 15  # Choose a larger odd number to smooth gradient measurements
 
     # Apply each of the thresholding functions
-    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(10, 255))  # 20, 80
-    grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(10, 255))  # 20, 80
-    mag_binary = mag_thresh(gray, sobel_kernel=ksize, mag_thresh=(10, 255))  # 20, 100
-    dir_binary = dir_threshold(gray, sobel_kernel=7, thresh=(0.6, 1.4))  # (0.7, 1.3))
-    hls_yellow = hls_select(undist, hthresh=(10, 45), ithresh=(50, 255), sthresh=(80, 255))  # yellow line
-    # hls_binary1 = hls_select(undist, hthresh=(0, 255), ithresh=(0, 255), sthresh=(100, 255))  # white line candidate -> fail
+    # gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(30, 100))  # 20, 80
+    # grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(30, 100))  # 20, 80
+    # dir_binary = dir_threshold(gray, sobel_kernel=7, thresh=(0.7, 1.3))  # doesn't work for harder_challenge_video
+
+    mag_binary = mag_thresh(gray, sobel_kernel=ksize, mag_thresh=(30, 100))  # 20, 100
+    hls_asphalt = hls_select(undist, hthresh=(100, 200), ithresh=(0, 255), sthresh=(0, 255))  # Asphalt color
+
+    # hls_yellow = hls_select(undist, hthresh=(10, 30), ithresh=(50, 230), sthresh=(50, 255))  # yellow line all
+    hls_yellow1 = hls_select(undist, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
+    hls_yellow2 = hls_select(undist, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
+
+    rgb_white = rgb_select(undist, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
+    rgb_excess = rgb_select(undist, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
 
     # combined = np.zeros_like(dir_binary)
-    combined = np.zeros((dir_binary.shape), dtype=np.uint8)
-    # combined[(hls_yellow == 1)] = 255  # yellow line
+    combined = np.zeros((mag_binary.shape), dtype=np.uint8)
+    # # XX combined[((gradx == 1) | (grady == 1))] = 255  # shallow edge
+    combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 255  # yellow line
+    combined[((rgb_white == 1) & (rgb_excess != 1))] = 255  # White line
+    combined[((mag_binary == 1) & (hls_asphalt != 1))] = 255  # none Asphalt edge
+    # return cv2.cvtColor(combined, cv2.COLOR_GRAY2BGR)  # debug code
 
-    # combined[((((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))) | (hls_binary == 1))] = 255
-    # combined[(((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1)))] = 255
-    # combined[(dir_binary == 1)] = 255
-    # combined[((gradx == 1) & (grady == 1))] = 255
-    # combined[(mag_binary == 1)] = 255
-    # combined[((mag_binary == 1) & (dir_binary == 1))] = 255
-    combined[(dir_binary == 1)] = 255
-
-    return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
     # 4) Perspective Transform
     binary_warped = cv2.warpPerspective(combined, M, (combined.shape[1], combined.shape[0]), flags=cv2.INTER_NEAREST)
     # return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2BGR)  # debug code
     # return cv2.cvtColor(cv2.warpPerspective(undist, M, (undist.shape[1], undist.shape[0]), flags=cv2.INTER_LINEAR), cv2.COLOR_RGB2BGR)  # debug code
+
 
     # 5) Find Lanes via Sliding Windows: 1st Method
 
@@ -533,7 +546,7 @@ def process_image(image, weight=0.5):
 
     llines = []
     rlines = []
-    step = 5
+    step = 20  # shallow -> 5
     for y in range(0, 720 - step, step):
         x1 = int(left_fitx[y])
         x2 = int(left_fitx[y + step])
@@ -544,8 +557,6 @@ def process_image(image, weight=0.5):
 
     draw_lines(out_img, llines, color=[255, 120, 120], thickness=3)
     draw_lines(out_img, rlines, color=[120, 120, 255], thickness=3)
-        
-    # return out_img  # debug code
 
 
     # 6) Determine the lane curvature
@@ -567,6 +578,10 @@ def process_image(image, weight=0.5):
     # Now our radius of curvature is in meters
     print('  curvature left:{:6.1f}m,  right:{:6.1f}m'.format(left_curverad, right_curverad))
     # Example values: 632.1 m    626.2 m
+
+
+    # return out_img  # debug code
+
 
     # filter curvature values
 
@@ -633,45 +648,45 @@ def process_image(image, weight=0.5):
 # process frame by frame for developing
 
 # for file in ('LegacyVideo_20170725_135613.mp4', 'LegacyVideo_20170626_140342.mp4', 'LegacyVideo_20170622_144939.mp4'):
-for l in range(1, 20):
-    for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
-        clip1 = VideoFileClip('../' + file)
-        frameno = 0
-        for frame in clip1.iter_frames():
-            if frameno % 10 == 0 and frameno < 1000:
-                print('frameno: {:5.0f}'.format(frameno))
-                result = process_image(frame)
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                img = cv2.vconcat([cv2.resize(frame, (800, 380)),
-                                   cv2.resize(result, (800, 380))])
-                # cv2.imshow('result', result)
-                cv2.imshow('frame', img)
-        
-            frameno += 1
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+# for l in range(1, 20):
+#     for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+#         clip1 = VideoFileClip('../' + file)
+#         frameno = 0
+#         for frame in clip1.iter_frames():
+#             if frameno % 10 == 0 and frameno < 1000:
+#                 print('frameno: {:5.0f}'.format(frameno))
+#                 result = process_image(frame)
+#                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+#                 img = cv2.vconcat([cv2.resize(frame, (800, 380)),
+#                                    cv2.resize(result, (800, 380))])
+#                 # cv2.imshow('result', result)
+#                 cv2.imshow('frame', img)
+#                 if frameno % 200 == 0:
+#                     name, ext = os.path.splitext(os.path.basename(file))
+#                     filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
+#                     if not os.path.exists(filename):
+#                         cv2.imwrite(filename, img)
 
-cv2.destroyAllWindows()
-exit(0)
+#             frameno += 1
+#             if cv2.waitKey(1) & 0xFF == ord('q'):
+#                 break
+
+# cv2.destroyAllWindows()
+# exit(0)
 
 ######################################
 
-white_output = '/Users/ichikihiroshi/CarND-Advanced-Lane-Lines/project_video_out.mp4'
-clip1 = VideoFileClip('../project_video.mp4')
-white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
-white_clip.write_videofile(white_output, audio=False)
-exit(0)
+# white_output = '../project_video_out.mp4'
+# clip1 = VideoFileClip('../project_video.mp4')
+# white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+# white_clip.write_videofile(white_output, audio=False)
 
-
-white_output = '/Users/ichikihiroshi/CarND-Advanced-Lane-Lines/challenge_video_out.mp4'
+white_output = '../challenge_video_out.mp4'
 clip1 = VideoFileClip('../challenge_video.mp4')
-frames = int(clip1.fps * clip1.duration)
-print('frame num: ', frames)
 white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
 white_clip.write_videofile(white_output, audio=False)
-exit(0)
 
-white_output = '/Users/ichikihiroshi/CarND-Advanced-Lane-Lines/harder_challenge_video_out.mp4'
+white_output = '../harder_challenge_video_out.mp4'
 clip1 = VideoFileClip('../harder_challenge_video.mp4')
 white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
 white_clip.write_videofile(white_output, audio=False)
