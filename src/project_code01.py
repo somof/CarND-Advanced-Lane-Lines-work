@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 objp = np.zeros((6*9, 3), np.float32)
 objp[:, :2] = np.mgrid[0:9, 0:6].T.reshape(-1, 2)
 
+# termination criteria
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
 # Arrays to store object points and image points from all the images.
 objpoints = []  # 3d points in real world space
 imgpoints = []  # 2d points in image plane.
@@ -24,6 +27,9 @@ for fname in images:
 
     # If found, add object points, image points
     if ret:
+        # calculate subpixel positions
+        cv2.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+
         objpoints.append(objp)
         imgpoints.append(corners)
 
@@ -44,7 +50,7 @@ f.tight_layout()
 ax1.imshow(img)
 ax1.set_title('Original Image', fontsize=50)
 ax2.imshow(dst)
-ax2.set_title('Undistorted Image', fontsize=50)
+ax2.set_title('Undistorted Image(SubPix)', fontsize=50)
 plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)
-plt.savefig('report_sec1_01.jpg')
+plt.savefig('report_sec1_01_subpix.jpg')
 plt.show()
