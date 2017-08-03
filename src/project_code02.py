@@ -414,13 +414,13 @@ def process_image(image, weight=0.5):
     combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 255  # yellow line
     combined[((rgb_white == 1) & (rgb_excess != 1))] = 255  # White line
     combined[((mag_binary == 1) & (hls_asphalt != 1))] = 255  # none Asphalt edge
-    # return cv2.cvtColor(combined, cv2.COLOR_GRAY2BGR)  # debug code
+    # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
 
     # 4) Perspective Transform
     binary_warped = cv2.warpPerspective(combined, M, (combined.shape[1], combined.shape[0]), flags=cv2.INTER_NEAREST)
-    # return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2BGR)  # debug code
-    # return cv2.cvtColor(cv2.warpPerspective(undist, M, (undist.shape[1], undist.shape[0]), flags=cv2.INTER_LINEAR), cv2.COLOR_RGB2BGR)  # debug code
+    # return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2RGB)  # debug code
+    # return cv2.warpPerspective(undist, M, (undist.shape[1], undist.shape[0]), flags=cv2.INTER_LINEAR)  # debug code
 
 
     # 5) Find Lanes via Sliding Windows: 1st Method
@@ -580,7 +580,7 @@ def process_image(image, weight=0.5):
     # Example values: 632.1 m    626.2 m
 
 
-    # return out_img  # debug code
+    return out_img  # debug code
 
 
     # filter curvature values
@@ -610,7 +610,7 @@ def process_image(image, weight=0.5):
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
     # Combine the result with the original image
-    return cv2.addWeighted(cv2.cvtColor(undist, cv2.COLOR_RGB2BGR), 1, newwarp, 0.3, 0)
+    return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 
 
 
@@ -647,39 +647,39 @@ def process_image(image, weight=0.5):
 ######################################
 # process frame by frame for developing
 
-# for file in ('LegacyVideo_20170725_135613.mp4', 'LegacyVideo_20170626_140342.mp4', 'LegacyVideo_20170622_144939.mp4'):
-# for l in range(1, 20):
-#     for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
-#         clip1 = VideoFileClip('../' + file)
-#         frameno = 0
-#         for frame in clip1.iter_frames():
-#             if frameno % 10 == 0 and frameno < 1000:
-#                 print('frameno: {:5.0f}'.format(frameno))
-#                 result = process_image(frame)
-#                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-#                 img = cv2.vconcat([cv2.resize(frame, (800, 380)),
-#                                    cv2.resize(result, (800, 380))])
-#                 # cv2.imshow('result', result)
-#                 cv2.imshow('frame', img)
-#                 if frameno % 200 == 0:
-#                     name, ext = os.path.splitext(os.path.basename(file))
-#                     filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
-#                     if not os.path.exists(filename):
-#                         cv2.imwrite(filename, img)
+for l in range(1, 20):
+    for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+        clip1 = VideoFileClip('../' + file)
+        frameno = 0
+        for frame in clip1.iter_frames():
+            if frameno % 10 == 0 and frameno < 1000:
+                print('frameno: {:5.0f}'.format(frameno))
+                result = process_image(frame)
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
+                img = cv2.vconcat([cv2.resize(frame, (800, 380)),
+                                   cv2.resize(result, (800, 380))])
+                # cv2.imshow('result', result)
+                cv2.imshow('frame', img)
+                if frameno % 200 == 0:
+                    name, ext = os.path.splitext(os.path.basename(file))
+                    filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
+                    if not os.path.exists(filename):
+                        cv2.imwrite(filename, img)
 
-#             frameno += 1
-#             if cv2.waitKey(1) & 0xFF == ord('q'):
-#                 break
+            frameno += 1
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
 
-# cv2.destroyAllWindows()
-# exit(0)
+cv2.destroyAllWindows()
+exit(0)
 
 ######################################
 
-# white_output = '../project_video_out.mp4'
-# clip1 = VideoFileClip('../project_video.mp4')
-# white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
-# white_clip.write_videofile(white_output, audio=False)
+white_output = '../project_video_out.mp4'
+clip1 = VideoFileClip('../project_video.mp4')
+white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+white_clip.write_videofile(white_output, audio=False)
 
 white_output = '../challenge_video_out.mp4'
 clip1 = VideoFileClip('../challenge_video.mp4')
