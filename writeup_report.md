@@ -26,7 +26,9 @@ The goals / steps of this project are the following:
 追加メモ
 動画のキャリブはどうやって？
 
+3.66m 車線幅
 
+30m from lesson
 
 
 * Suggestions to Make Your Project Stand Out!

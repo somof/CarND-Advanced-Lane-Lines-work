@@ -301,6 +301,7 @@ magx = 320
 magy = 0
 src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])
 src = np.float32([[585, 460], [695, 460], [1127, 720], [203, 720]])
+src = np.float32([[585, 460], [695, 460], [1127, 690], [203, 690]])
 dst = np.float32([[magx, magy], [width - magx, magy], [width-magx, height - magy], [magx, height - magy]])
 
 # src = np.float32([[585, 460], [203, 720], [1127, 720], [695, 460]])
@@ -546,7 +547,7 @@ def process_image(image, weight=0.5):
 
     llines = []
     rlines = []
-    step = 20  # shallow -> 5
+    step = 5
     for y in range(0, 720 - step, step):
         x1 = int(left_fitx[y])
         x2 = int(left_fitx[y + step])
@@ -561,13 +562,13 @@ def process_image(image, weight=0.5):
 
     # 6) Determine the lane curvature
     y_eval = np.max(ploty)
-    left_curverad = ((1 + (2*left_fit[0]*y_eval + left_fit[1])**2)**1.5) / np.absolute(2*left_fit[0])
-    right_curverad = ((1 + (2*right_fit[0]*y_eval + right_fit[1])**2)**1.5) / np.absolute(2*right_fit[0])
+    left_curverad = ((1 + (2 * left_fit[0] * y_eval + left_fit[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit[0])
+    right_curverad = ((1 + (2 * right_fit[0] * y_eval + right_fit[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit[0])
     # print(left_curverad, right_curverad)
 
     # Define conversions in x and y from pixels space to meters
-    ym_per_pix = 30/720 # meters per pixel in y dimension
-    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+    ym_per_pix = 30 / 720 # meters per pixel in y dimension
+    xm_per_pix = 3.66 / 700 # meters per pixel in x dimension
 
     # Fit new polynomials to x,y in world space
     left_fit_cr = np.polyfit(ploty * ym_per_pix, left_fitx * xm_per_pix, 2)
@@ -576,41 +577,24 @@ def process_image(image, weight=0.5):
     left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval * ym_per_pix + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_cr[0])
     right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval * ym_per_pix + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit_cr[0])
     # Now our radius of curvature is in meters
-    print('  curvature left:{:6.1f}m,  right:{:6.1f}m'.format(left_curverad, right_curverad))
-    # Example values: 632.1 m    626.2 m
 
+    # TODO
+    # filter curvature values
+
+
+
+
+    # detect offset of the car position
+    vehicle_offset = 1280 / 2 - (left_fit[2] + right_fit[2]) / 2
+    vehicle_offset *= xm_per_pix
+
+    infotext = '  offset {:8.1f}m, curvature left:{:8.1f}m,  right:{:8.1f}m'.format(vehicle_offset, left_curverad, right_curverad)
+    print(infotext)
+
+    # Example values: 632.1 m    626.2 m
 
     return out_img  # debug code
 
-
-    # filter curvature values
-
-    # TODO
-
-    # detect offset of the car position
-
-    # TODO
-
-
-    # return out_img  # debug code
-
-
-    # Create an image to draw the lines on
-    warp_zero = np.zeros_like(binary_warped).astype(np.uint8)
-    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
-
-    # Recast the x and y points into usable format for cv2.fillPoly()
-    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
-    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
-    pts = np.hstack((pts_left, pts_right))
-
-    # Draw the lane onto the warped blank image
-    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
-
-    # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
-    # Combine the result with the original image
-    return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 
 
 
@@ -639,15 +623,35 @@ def process_image(image, weight=0.5):
 
     # Drawing -> tips
 
+    # Create an image to draw the lines on
+    warp_zero = np.zeros_like(binary_warped).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
 
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    pts = np.hstack((pts_left, pts_right))
 
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
 
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
+    # Combine the result with the original image
+    font_size = 1.2
+    font = cv2.FONT_HERSHEY_DUPLEX
+    infotext = 'offset {:+4.1f}m, curvature left:{:.1f}m,  right:{:.1f}m'.format(vehicle_offset, left_curverad, right_curverad)
+    cv2.putText(undist, infotext, (30, 50), font, font_size, (255,255,255))
+    # cv2.putText(im,text,(w-length-from_edge-5,h-from_edge-hight),font, font_size,(255,255,0))
+
+    return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 
 
 ######################################
 # process frame by frame for developing
 
 for l in range(1, 20):
+    # for file in ('challenge_video.mp4', 'project_video.mp4', 'harder_challenge_video.mp4'):
     for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
         clip1 = VideoFileClip('../' + file)
         frameno = 0
@@ -665,7 +669,8 @@ for l in range(1, 20):
                     name, ext = os.path.splitext(os.path.basename(file))
                     filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
                     if not os.path.exists(filename):
-                        cv2.imwrite(filename, img)
+                        pass
+                        # cv2.imwrite(filename, img)
 
             frameno += 1
             if cv2.waitKey(1) & 0xFF == ord('q'):
