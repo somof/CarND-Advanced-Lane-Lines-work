@@ -31,7 +31,6 @@
 # Here are some other tips and tricks for building a robust pipeline:
 
 ## Offset
-
 # You can assume the camera is mounted at the center of the car, such that the
 # lane center is the midpoint at the bottom of the image between the two lines
 # you've detected. The offset of the lane center from the center of the image
@@ -39,7 +38,6 @@
 # lane.
 
 ## Tracking
-
 # After you've tuned your pipeline on test images, you'll run on a video
 # stream, just like in the first project. In this case, however, you're going
 # to keep track of things like where your last several detections of the lane
@@ -53,24 +51,24 @@
 class Line():
     def __init__(self):
         # was the line detected in the last iteration?
-        self.detected = False  
+        self.detected = False
         # x values of the last n fits of the line
-        self.recent_xfitted = [] 
-        #average x values of the fitted line over the last n iterations
-        self.bestx = None     
-        #polynomial coefficients averaged over the last n iterations
-        self.best_fit = None  
-        #polynomial coefficients for the most recent fit
-        self.current_fit = [np.array([False])]  
-        #radius of curvature of the line in some units
-        self.radius_of_curvature = None 
-        #distance in meters of vehicle center from the line
-        self.line_base_pos = None 
-        #difference in fit coefficients between last and new fits
-        self.diffs = np.array([0,0,0], dtype='float') 
-        #x values for detected line pixels
-        self.allx = None  
-        #y values for detected line pixels
+        self.recent_xfitted = []
+        # average x values of the fitted line over the last n iterations
+        self.bestx = None
+        # polynomial coefficients averaged over the last n iterations
+        self.best_fit = None
+        # polynomial coefficients for the most recent fit
+        self.current_fit = [np.array([False])]
+        # radius of curvature of the line in some units
+        self.radius_of_curvature = None
+        # distance in meters of vehicle center from the line
+        self.line_base_pos = None
+        # difference in fit coefficients between last and new fits
+        self.diffs = np.array([0, 0, 0], dtype='float')
+        # x values for detected line pixels
+        self.allx = None
+        # y values for detected line pixels
         self.ally = None
 
 # You can create an instance of the Line() class for the left and right lane
@@ -82,9 +80,9 @@ class Line():
 # that the detection makes sense. To confirm that your detected lane lines are
 # real, you might consider:
 
- - Checking that they have similar curvature
- - Checking that they are separated by approximately the right distance horizontally
- - Checking that they are roughly parallel
+#   - Checking that they have similar curvature
+#   - Checking that they are separated by approximately the right distance horizontally
+#   - Checking that they are roughly parallel
 
 ## Look-Ahead Filter
 # Once you've found the lane lines in one frame of video, and you are
@@ -102,7 +100,6 @@ class Line():
 # curvature, separation, and slope).
 
 ## Reset
-
 # If your sanity checks reveal that the lane lines you've detected are
 # problematic for some reason, you can simply assume it was a bad or difficult
 # frame of video, retain the previous positions from the frame prior and step
@@ -111,7 +108,6 @@ class Line():
 # and sliding window, or another method, to re-establish your measurement.
 
 ## Smoothing
-
 # Even when everything is working, your line detections will jump around from
 # frame to frame a bit and it can be preferable to smooth over the last n
 # frames of video to obtain a cleaner result. Each time you get a new
@@ -120,7 +116,6 @@ class Line():
 # lane position you want to draw onto the image.
 
 ## Drawing
-
 # Once you have a good measurement of the line positions in warped space, it's
 # time to project your measurement back down onto the road! Let's suppose, as
 # in the previous example, you have a warped binary image called warped, and

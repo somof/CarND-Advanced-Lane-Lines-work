@@ -259,16 +259,18 @@ def dir_threshold(image, sobel_kernel=3, thresh=(0, np.pi/2)):
     return binary_output
 
 
-def hls_select(image, hthresh=(0, 255), sthresh=(0, 255)):
+def hls_select(image, hthresh=(0, 255), sthresh=(0, 255), ithresh=(0, 255)):
     # 1) Convert to HLS color space
-    # 2) Apply a threshold to the S channel
-    # 3) Return a binary image of threshold result
     hls = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
-    h_channel = hls[:,:,0]
-    s_channel = hls[:,:,2]
+    # 2) Apply a threshold to each channel
+    h_channel = hls[:, :, 0]
+    i_channel = hls[:, :, 1]
+    s_channel = hls[:, :, 2]
+    # 3) Return a binary image of threshold result
     binary_output = np.zeros_like(s_channel)
     binary_output[(((h_channel >= hthresh[0]) & (h_channel <= hthresh[1])) &
-                   ((s_channel >= sthresh[0]) & (s_channel <= sthresh[1])))] = 1
+                   ((s_channel >= sthresh[0]) & (s_channel <= sthresh[1])) &
+                   ((i_channel >= ithresh[0]) & (i_channel <= ithresh[1])))] = 1
     return binary_output
 
 
@@ -370,7 +372,8 @@ def find_window_centroids(image, window_width, window_height, margin):
 def process_image(image, weight=0.5):
 
     # 1) Undistort using mtx and dist
-    undist = cv2.undistort(image, mtx, dist, None, mtx)
+    # undist = cv2.undistort(image, mtx, dist, None, mtx)
+    undist = image
 
     # 2) Convert to grayscale
     gray = cv2.cvtColor(undist, cv2.COLOR_BGR2GRAY)
@@ -378,20 +381,29 @@ def process_image(image, weight=0.5):
     # 3) Create binary image via Combining Threshold
 
     # Choose a Sobel kernel size
-    ksize = 3  # Choose a larger odd number to smooth gradient measurements
+    ksize = 15  # Choose a larger odd number to smooth gradient measurements
 
     # Apply each of the thresholding functions
-    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(20, 80))
-    grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(20, 80))
-    mag_binary = mag_thresh(gray, sobel_kernel=5, mag_thresh=(20, 100))
-    dir_binary = dir_threshold(gray, sobel_kernel=15, thresh=(0.7, 1.3))  # (0.7, 1.3))
-    hls_binary = hls_select(undist, hthresh=(15, 100), sthresh=(170, 255))
+    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(10, 255))  # 20, 80
+    grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(10, 255))  # 20, 80
+    mag_binary = mag_thresh(gray, sobel_kernel=ksize, mag_thresh=(10, 255))  # 20, 100
+    dir_binary = dir_threshold(gray, sobel_kernel=7, thresh=(0.6, 1.4))  # (0.7, 1.3))
+    hls_yellow = hls_select(undist, hthresh=(10, 45), ithresh=(50, 255), sthresh=(80, 255))  # yellow line
+    # hls_binary1 = hls_select(undist, hthresh=(0, 255), ithresh=(0, 255), sthresh=(100, 255))  # white line candidate -> fail
 
     # combined = np.zeros_like(dir_binary)
     combined = np.zeros((dir_binary.shape), dtype=np.uint8)
+    # combined[(hls_yellow == 1)] = 255  # yellow line
+
+    # combined[((((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))) | (hls_binary == 1))] = 255
     # combined[(((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1)))] = 255
-    combined[((((gradx == 1) & (grady == 1)) | ((mag_binary == 1) & (dir_binary == 1))) | (hls_binary == 1))] = 255
-    # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
+    # combined[(dir_binary == 1)] = 255
+    # combined[((gradx == 1) & (grady == 1))] = 255
+    # combined[(mag_binary == 1)] = 255
+    # combined[((mag_binary == 1) & (dir_binary == 1))] = 255
+    combined[(dir_binary == 1)] = 255
+
+    return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
     # 4) Perspective Transform
     binary_warped = cv2.warpPerspective(combined, M, (combined.shape[1], combined.shape[0]), flags=cv2.INTER_NEAREST)
@@ -473,7 +485,6 @@ def process_image(image, weight=0.5):
 
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
-    # return out_img  # debug code
 
     # # 5) Find Lanes via Sliding Windows: 2nd method
     #
@@ -534,6 +545,9 @@ def process_image(image, weight=0.5):
     draw_lines(out_img, llines, color=[255, 120, 120], thickness=3)
     draw_lines(out_img, rlines, color=[120, 120, 255], thickness=3)
         
+    # return out_img  # debug code
+
+
     # 6) Determine the lane curvature
     y_eval = np.max(ploty)
     left_curverad = ((1 + (2*left_fit[0]*y_eval + left_fit[1])**2)**1.5) / np.absolute(2*left_fit[0])
@@ -551,18 +565,40 @@ def process_image(image, weight=0.5):
     left_curverad = ((1 + (2 * left_fit_cr[0] * y_eval * ym_per_pix + left_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * left_fit_cr[0])
     right_curverad = ((1 + (2 * right_fit_cr[0] * y_eval * ym_per_pix + right_fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * right_fit_cr[0])
     # Now our radius of curvature is in meters
-    print(left_curverad, 'm', right_curverad, 'm')
+    print('  curvature left:{:6.1f}m,  right:{:6.1f}m'.format(left_curverad, right_curverad))
     # Example values: 632.1 m    626.2 m
 
     # filter curvature values
 
+    # TODO
+
     # detect offset of the car position
 
+    # TODO
+
+
+    # return out_img  # debug code
+
+
+    # Create an image to draw the lines on
+    warp_zero = np.zeros_like(binary_warped).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
+    # Combine the result with the original image
+    return cv2.addWeighted(cv2.cvtColor(undist, cv2.COLOR_RGB2BGR), 1, newwarp, 0.3, 0)
 
 
 
-
-    return out_img
 
 
     # Tracking -> tips
