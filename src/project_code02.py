@@ -19,8 +19,6 @@ from moviepy.editor import VideoFileClip
 from IPython.display import HTML
 
 
-# Read in the saved objpoints and imgpoints for Caliblation
-
 # Read in the saved camera matrix and distortion coefficients
 # These are the arrays you calculated using cv2.calibrateCamera()
 import pickle
@@ -29,29 +27,6 @@ objpoints = dist_pickle["objpoints"]
 imgpoints = dist_pickle["imgpoints"]
 mtx = dist_pickle["mtx"]
 dist = dist_pickle["dist"]
-
-
-
-# Helper Functions
-
-def grayscale(img):
-    """Applies the Grayscale transform
-    This will return an image with only one color channel
-    but NOTE: to see the returned image as grayscale
-    (assuming your grayscaled image is called 'gray')
-    you should call plt.imshow(gray, cmap='gray')"""
-
-    RGB = cv2.split(img)
-    return cv2.addWeighted(RGB[0], 0.5, RGB[1], 0.5, 0.0)
-
-    # return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    # Or use BGR2GRAY if you read an image with cv2.imread()
-    # return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-
-def canny(img, low_threshold, high_threshold):
-    """Applies the Canny transform"""
-    return cv2.Canny(img, low_threshold, high_threshold)
 
 
 def gaussian_blur(img, kernel_size):
@@ -108,106 +83,6 @@ def draw_lines(img, lines, color=[255, 0, 0], thickness=2):
                 cv2.line(img, (x1, y1), (x2, y2), color, thickness)
 
 
-def hough_lines(img, rho, theta, threshold, min_line_len, max_line_gap, angle_min, angle_max):
-    """
-    `img` should be the output of a Canny transform.
-
-    Returns an image with hough lines drawn.
-    """
-    lines = cv2.HoughLinesP(img, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
-    points = []
-    filtered_lines = []
-    if lines is not None:
-        for line in lines:
-            for x1, y1, x2, y2 in line:
-                length = math.hypot(x2 - x1, y2 - y1)
-                theta = math.atan2((y2 - y1), (x2 - x1))
-                if 5 < length and angle_min < theta and theta < angle_max:
-                    filtered_lines.append([[x1, y1, x2, y2]])
-                    points.extend(devide_points(x1, y1, x2, y2))
-
-                # if 5 < length and  0.05*math.pi < theta and theta <  0.45*math.pi:
-                #     filtered_lines.append([[x1, y1, x2, y2]])
-                #     right_points.extend(devide_points(x1, y1, x2, y2))
-
-                # if 5 < length and -0.45*math.pi < theta and theta < -0.05*math.pi:
-                #     filtered_lines.append([[x1, y1, x2, y2]])
-                #     left_points.extend(devide_points(x1, y1, x2, y2))
-
-    line_img = np.zeros((img.shape[0], img.shape[1], 3), dtype=np.uint8)
-    draw_lines(line_img, filtered_lines)
-
-    # draw angle scale
-    # radial = 200
-    # for unit in (0.1, 0.2, 0.3, 0.4):
-    #     rad = math.pi * unit
-    #     cx = 500
-    #     cy = 300
-    #     x = int(math.sin(-rad) * radial + cx)
-    #     y = int(math.cos(-rad) * radial + cy)
-    #     cv2.line(line_img, (cx, cy), (x, y), [255, 0, 255], 1)
-    #     cx = 550
-    #     x = int(math.sin(rad) * radial + cx)
-    #     y = int(math.cos(rad) * radial + cy)
-    #     cv2.line(line_img, (cx, cy), (x, y), [0, 255, 255], 1)
-
-    return line_img, points
-
-# Python 3 has support for cool math symbols.
-
-def weighted_img(img, initial_img, alpha=0.8, beta=1.0, gamma=0.0):
-    """
-    `img` is the output of the hough_lines(), An image with lines drawn on it.
-    Should be a blank image (all black) with lines drawn on it.
-
-    `initial_img` should be the image before any processing.
-
-    The result image is computed as follows:
-
-    initial_img * α + img * β + λ
-    NOTE: initial_img and img must be the same shape!
-    """
-    return cv2.addWeighted(initial_img, alpha, img, beta, gamma)
-
-
-def devide_points(x1, y1, x2, y2):
-    length = math.hypot(x2 - x1, y2 - y1)
-    num = int(math.sqrt(length))
-    lines = []
-    for i in range(0, num):
-        lines.append([x1 + i * (x2 - x1) / num,
-                      y1 + i * (y2 - y1) / num])
-    return lines
-
-
-def regression_line(points, hrange, color, thickness):
-
-    # transform point list
-    x = [d[0] for d in points]
-    y = [d[1] for d in points]
-
-    # Linear regressor
-    # slope, intercept, r_value, _, _ = stats.linregress(x, y)
-    # # func = lambda x: x * slope + intercept
-    # func = lambda y: int((y - intercept) / slope)
-    # cv2.line(img, (func(500), 500), (func(300), 300), color, thickness)
-
-    if 30 < len(x):
-        # RANSAC regressor
-        model_ransac = linear_model.RANSACRegressor(linear_model.LinearRegression(),
-                                                    min_samples=24,
-                                                    residual_threshold=25,
-                                                    # is_data_valid=is_data_valid,
-                                                    # random_state=0
-                                                    )
-        if model_ransac is not None:
-            X = np.array(x)
-            model_ransac.fit(X[:, np.newaxis], y)
-            line_x = np.arange(hrange[0], hrange[1], hrange[1] - hrange[0] - 1)
-            line_y = model_ransac.predict(line_x[:, np.newaxis])
-            return (int(line_x[0]), int(line_y[0])), (int(line_x[1]), int(line_y[1]))
-
-    return [0, 0], [0, 0]
 
 
 def abs_sobel_thresh(image, orient='x', sobel_kernel=3, sobel_thresh=(0, 255)):
@@ -300,8 +175,8 @@ center = width / 2 - 10
 magx = 320
 magy = 0
 src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])
+src = np.float32([[585, 460], [695, 460], [1127, 700], [203, 700]])
 src = np.float32([[585, 460], [695, 460], [1127, 720], [203, 720]])
-src = np.float32([[585, 460], [695, 460], [1127, 690], [203, 690]])
 dst = np.float32([[magx, magy], [width - magx, magy], [width-magx, height - magy], [magx, height - magy]])
 
 # src = np.float32([[585, 460], [203, 720], [1127, 720], [695, 460]])
@@ -388,6 +263,7 @@ def process_image(image, weight=0.5):
 
     # 2) Convert to grayscale
     gray = cv2.cvtColor(undist, cv2.COLOR_RGB2GRAY)
+    gray = gaussian_blur(gray, kernel_size=5)
 
     # 3) Create binary image via Combining Threshold
 
@@ -414,7 +290,7 @@ def process_image(image, weight=0.5):
     # # XX combined[((gradx == 1) | (grady == 1))] = 255  # shallow edge
     combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 255  # yellow line
     combined[((rgb_white == 1) & (rgb_excess != 1))] = 255  # White line
-    combined[((mag_binary == 1) & (hls_asphalt != 1))] = 255  # none Asphalt edge
+    # combined[((mag_binary == 1) & (hls_asphalt != 1))] = 255  # none Asphalt edge
     # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
 
@@ -593,7 +469,7 @@ def process_image(image, weight=0.5):
 
     # Example values: 632.1 m    626.2 m
 
-    return out_img  # debug code
+    # return out_img  # debug code
 
 
 
@@ -651,8 +527,8 @@ def process_image(image, weight=0.5):
 # process frame by frame for developing
 
 for l in range(1, 20):
-    # for file in ('challenge_video.mp4', 'project_video.mp4', 'harder_challenge_video.mp4'):
-    for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+    for file in ('challenge_video.mp4', 'project_video.mp4', 'harder_challenge_video.mp4'):
+    # for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
         clip1 = VideoFileClip('../' + file)
         frameno = 0
         for frame in clip1.iter_frames():
