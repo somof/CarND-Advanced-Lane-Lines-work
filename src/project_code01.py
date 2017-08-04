@@ -28,7 +28,7 @@ for fname in images:
     # If found, add object points, image points
     if ret:
         # calculate subpixel positions
-        cv2.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+        cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
 
         objpoints.append(objp)
         imgpoints.append(corners)

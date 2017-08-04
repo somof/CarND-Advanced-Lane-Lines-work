@@ -2,6 +2,10 @@
 
 The goals / steps of this project are the following:
 
+TODO 曲率を一つにする
+TODO レポート様に表示を変える
+
+
 主な提出物は詳細なレポート
 
 * Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
@@ -42,7 +46,6 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./examples/undistort_output.png "Undistorted"
 [image2]: ./test_images/test1.jpg "Road Transformed"
 [image3]: ./examples/binary_combo_example.jpg "Binary Example"
 [image4]: ./examples/warped_straight_lines.jpg "Warp Example"
@@ -59,134 +62,146 @@ The goals / steps of this project are the following:
 
 ###1.1 Computation of the camera calibration matrix and distortion coefficients 
 
-The code for this step is contained  in "project_code01.py".
+The code for this step is contained in "project_code01.py".  
+It corrects 3D "object points" and 2D "image points".
 
+"object points" is a list of 3D position, like (x, y, z), at which the checker board corners should exist in the world position.  
+The checkerboard can be assumed that it is on the z==0 surface, therefore we can simply define "object points" for each checkerboard image as following code.
+
+```
 objp = np.zeros((6*9, 3), np.float32)
 objp[:, :2] = np.mgrid[0:9, 0:6].T.reshape(-1, 2)
+```
 
+"image points" are the 2D corner positions of the checker board images.
+The corner positions are detected automaticaly from images in "camera_cal" folder provided by Udacity using opencv function, cv2.findChessboardCorners as following code.
 
-It corrects "3D object points" and "2D image points"
-I start by preparing "object points", 
-which will be the (x, y, z) coordinates of the chessboard corners in the world. 
+```
+# termination criteria
+criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# Find the chessboard corners
+ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
+```
+ 
+Here, "criteria" is used to calculate the corner positions with high precision.  
+After "cv2.findChessboardCorners" exit normally, 
+the corner positions are calculated again via "cv2.cornerSubPix" function with subpixel precision.
+Then the image corner positions and the object world points are appended into lists, objpoints and imgpoints as following code.
 
-    # Find the chessboard corners
-    ret, corners = cv2.findChessboardCorners(gray, (9, 6), None)
+```
+# If found, add object points, image points
+if ret:
+    # calculate subpixel positions
+    cv2.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
+    
+    objpoints.append(objp)
+    imgpoints.append(corners)
+
+```
+
+This process is repeated for 20 images in the "camera_cal" folder.  
+Then the objpoints and imgpoints are used to compute the camera calibration and distortion coefficients using the cv2.calibrateCamera() function.
+Once the coefficients are given, we can do distortion correction to images using the "cv2.undistort()" function and obtaine this result as following code.
+
+```
+# Test undistortion on an image
+img = cv2.imread('../camera_cal/calibration1.jpg')
+img_size = (img.shape[1], img.shape[0])
 
 # Do camera calibration given object points and image points
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
 
-cv2.calibrateCamera()を使います。この関数は、カメラ行列、歪み係数、回転と並進ベクトルなどを返します。
+dst = cv2.undistort(img, mtx, dist, None, mtx)
+```
+
+Following figure is the result.  
+This undistortion process mostly works well, but the undistorted image still has some distortion on the left side of the image.
+
+<img width=600 src="fig/report_sec1_01_subpix.jpg">
 
 
-Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.
-
-Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  
-`imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
-
-I then used the output `objpoints` and `imgpoints` to compute the
-camera calibration and distortion coefficients using the
-`cv2.calibrateCamera()` function.  
-I applied this distortion
-correction to the test image using the `cv2.undistort()` function and
-obtained this result:
-
-
-img = cv2.imread('../camera_cal/calibration1.jpg')
+Following figure is a result computed with pixel precision (not subpixel).  
+There is not specific difference between pixel and subpixel precision for this project.
 
 <img width=600 src="fig/report_sec1_01.jpg">
 
-
-
-```
-import numpy as np
-import cv2
-import glob
-
-# termination criteria
-criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((6*7,3), np.float32)
-objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)
-
-# Arrays to store object points and image points from all the images.
-objpoints = [] # 3d point in real world space
-imgpoints = [] # 2d points in image plane.
-
-images = glob.glob('*.jpg')
-
-for fname in images:
-    img = cv2.imread(fname)
-    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-
-    # Find the chess board corners
-    ret, corners = cv2.findChessboardCorners(gray, (7,6),None)
-
-    # If found, add object points, image points (after refining them)
-    if ret == True:
-        objpoints.append(objp)
-
-        cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
-        imgpoints.append(corners)
-
-        # Draw and display the corners
-        cv2.drawChessboardCorners(img, (7,6), corners2,ret)
-        cv2.imshow('img',img)
-        cv2.waitKey(500)
-
-cv2.destroyAllWindows()
-```
-
-
-
-
-  チェッカーボードの補正用係数を計算する
-  note these are 9x6 chessboard images, unlike the 8x6 images used in the lesson
-
-
-
-<img width=600 src="fig/report_sec1_01.jpg">
 
 TODO ここから書き直す
 
-
-**1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.**
-
-The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" 
-(or in lines # through # of the file called `some_file.py`).  
-
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. 
-Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  
-Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  
-`imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
-
-I then used the output `objpoints` and `imgpoints` to compute the
-camera calibration and distortion coefficients using the
-`cv2.calibrateCamera()` function.  
-I applied this distortion
-correction to the test image using the `cv2.undistort()` function and
-obtained this result:
-
-![alt text][image1]
-
-
-
-
 ##2. Pipeline (single images)
 
-###2.1. Provide an example of a distortion-corrected image.
+###2.1. An example of a distortion-corrected image
 
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
+Following images are a sample input image and a its undistorted image.  
+It shows bented objects on the input image are corrected via the undistortion process described above.
+
 ![alt text][image2]
 
-###2.2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+
+
+###2.2. An example of a binary image
+
+This code for this step creates binary images for each frames in the input video.  
+The binary images are used to the latter finding-lanes process.
+
+Generally such binary images can have a lot of pseudo information to make troubles on line-finding algorithms.
+So I tried to restrict target objects to detect on the binary images as following.
+
+- 2 types of Yellow line
+- White line
+
+Actually
+
+- not boundary line on asphalt
+- not excessively exposed area
+
+####2.2.1 Two types of Yellow line
+TODO 画像を用意する
+####2.2.2 White line
+TODO 画像を用意する
+####2.2.3 Not boundary line on asphalt
+TODO 画像を用意する
+####2.2.4 Not excessively exposed area
+TODO 画像を用意する
+####2.2.5 Combined binary image
+TODO 画像を用意する
+
+
+
+
+a perspective transform 
+
+Color transforms, gradients or other methods to create a thresholded binary image.  
+
+Provide 
+
+
 
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
 
+
+
+```
+
+```
+
+
+
 ![alt text][image3]
 
+
+
 ###2.3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
+
+欲張って
+遠くまで見ると
+激しく暴れる
+
+解像度が必要
+
+
 
 The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
 
