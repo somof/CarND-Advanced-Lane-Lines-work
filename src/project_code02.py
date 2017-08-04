@@ -365,8 +365,17 @@ def process_image(image, weight=0.5):
     righty = nonzeroy[right_lane_inds]
 
     # Fit a second order polynomial to each
-    left_fit = np.polyfit(lefty, leftx, 2)
-    right_fit = np.polyfit(righty, rightx, 2)
+    try:
+        left_fit = np.polyfit(lefty, leftx, 2)
+    except TypeError:
+        print('TypeError: left polyfit')
+        return undist
+
+    try:
+        right_fit = np.polyfit(righty, rightx, 2)
+    except TypeError:
+        print('TypeError: right polyfit')
+        return undist
 
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
