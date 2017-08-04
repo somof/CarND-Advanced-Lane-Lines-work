@@ -473,6 +473,7 @@ def process_image(image, weight=0.5):
 
     # detect offset of the car position
     vehicle_offset = 1280 / 2 - (left_fit[2] + right_fit[2]) / 2
+    vehicle_offset = 1280 / 2 - (left_fitx[719] + right_fitx[719]) / 2
     vehicle_offset *= xm_per_pix
 
     infotext = '  offset {:8.1f}m, curvature left:{:8.1f}m,  right:{:8.1f}m'.format(vehicle_offset, left_curverad, right_curverad)
@@ -537,6 +538,13 @@ def process_image(image, weight=0.5):
 ######################################
 # process frame by frame for developing
 
+
+trapezoid = []
+trapezoid.append([[src[0][0], src[0][1], src[1][0], src[1][1]]])
+trapezoid.append([[src[1][0], src[1][1], src[2][0], src[2][1]]])
+trapezoid.append([[src[2][0], src[2][1], src[3][0], src[3][1]]])
+trapezoid.append([[src[3][0], src[3][1], src[0][0], src[0][1]]])
+
 for l in range(1, 20):
     for file in ('challenge_video.mp4', 'project_video.mp4', 'harder_challenge_video.mp4'):
     # for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
@@ -547,6 +555,8 @@ for l in range(1, 20):
                 print('frameno: {:5.0f}'.format(frameno))
                 result = process_image(frame)
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                draw_lines(frame, trapezoid, color=[100, 100, 180], thickness=2)
+
                 result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
                 img = cv2.vconcat([cv2.resize(frame, (800, 380)),
                                    cv2.resize(result, (800, 380))])
