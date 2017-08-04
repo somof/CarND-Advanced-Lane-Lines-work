@@ -512,6 +512,7 @@ def process_image(image, weight=0.5):
     print()
 
 
+    # TODO
 
     # 7-6) Detect offset of the car position
     lane_center = (left_fitx[-1] + right_fitx[-1]) / 2
@@ -569,51 +570,6 @@ def process_image(image, weight=0.5):
     return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 
 
-######################################
-# process frame by frame for developing
-
-
-trapezoid = []
-trapezoid.append([[perspective_src[0][0], perspective_src[0][1], perspective_src[1][0], perspective_src[1][1]]])
-trapezoid.append([[perspective_src[1][0], perspective_src[1][1], perspective_src[2][0], perspective_src[2][1]]])
-trapezoid.append([[perspective_src[2][0], perspective_src[2][1], perspective_src[3][0], perspective_src[3][1]]])
-trapezoid.append([[perspective_src[3][0], perspective_src[3][1], perspective_src[0][0], perspective_src[0][1]]])
-
-for l in range(1, 20):
-    # for file in ('challenge_video.mp4', 'project_video.mp4', 'harder_challenge_video.mp4'):
-    for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
-        clip1 = VideoFileClip('../' + file)
-        frameno = 0
-        left_fit = [0, 0, 360]
-        right_fit = [0, 0, 920]
-        left_curverad = 0
-        right_curverad = 0
-        pre_left_curverad = 0
-        pre_right_curverad = 0
-
-        for frame in clip1.iter_frames():
-            if frameno % 10 == 0 and frameno < 1000:
-                # print('frameno: {:5.0f}'.format(frameno))
-                result = process_image(frame)
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                draw_lines(frame, trapezoid, color=[100, 100, 180], thickness=2)
-
-                result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
-                img = cv2.vconcat([cv2.resize(frame, (800, 380)),
-                                   cv2.resize(result, (800, 380))])
-                # cv2.imshow('result', result)
-                cv2.imshow('frame', img)
-                if frameno % 100 == 0:
-                    name, ext = os.path.splitext(os.path.basename(file))
-                    filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
-                    if not os.path.exists(filename):
-                        cv2.imwrite(filename, img)
-            frameno += 1
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-cv2.destroyAllWindows()
-exit(0)
 
 ######################################
 
