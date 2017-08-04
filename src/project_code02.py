@@ -174,9 +174,10 @@ def warper(img, src, dst):
 center = width / 2 - 10
 magx = 320
 magy = 0
-src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])
-src = np.float32([[585, 460], [695, 460], [1127, 700], [203, 700]])
-src = np.float32([[585, 460], [695, 460], [1127, 720], [203, 720]])
+# src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])
+# src = np.float32([[585, 460], [695, 460], [1127, 720], [203, 720]])  # sample data
+# src = np.float32([[585, 460], [695, 460], [1127, 700], [203, 700]])  # ignore bonnet
+src = np.float32([[582, 460], [698, 460], [1127, 700], [203, 700]])  # a little adjustment
 dst = np.float32([[magx, magy], [width - magx, magy], [width-magx, height - magy], [magx, height - magy]])
 
 # src = np.float32([[585, 460], [203, 720], [1127, 720], [695, 460]])
@@ -275,22 +276,23 @@ def process_image(image, weight=0.5):
     # grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(30, 100))  # 20, 80
     # dir_binary = dir_threshold(gray, sobel_kernel=7, thresh=(0.7, 1.3))  # doesn't work for harder_challenge_video
 
-    mag_binary = mag_thresh(gray, sobel_kernel=ksize, mag_thresh=(30, 100))  # 20, 100
-    hls_asphalt = hls_select(undist, hthresh=(100, 200), ithresh=(0, 255), sthresh=(0, 255))  # Asphalt color
+    # mag_binary = mag_thresh(gray, sobel_kernel=ksize, mag_thresh=(30, 100))  # 20, 100
+    # hls_asphalt = hls_select(undist, hthresh=(100, 200), ithresh=(0, 255), sthresh=(0, 255))  # Asphalt color
 
     # hls_yellow = hls_select(undist, hthresh=(10, 30), ithresh=(50, 230), sthresh=(50, 255))  # yellow line all
     hls_yellow1 = hls_select(undist, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
     hls_yellow2 = hls_select(undist, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
 
-    rgb_white = rgb_select(undist, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
+    # rgb_white = rgb_select(undist, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
+    rgb_white = rgb_select(undist, rthresh=(190, 255), gthresh=(190, 255), bthresh=(190, 255))  # white line
     rgb_excess = rgb_select(undist, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
 
     # combined = np.zeros_like(dir_binary)
-    combined = np.zeros((mag_binary.shape), dtype=np.uint8)
+    combined = np.zeros((rgb_white.shape), dtype=np.uint8)
     # # XX combined[((gradx == 1) | (grady == 1))] = 255  # shallow edge
     combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 255  # yellow line
     combined[((rgb_white == 1) & (rgb_excess != 1))] = 255  # White line
-    # combined[((mag_binary == 1) & (hls_asphalt != 1))] = 255  # none Asphalt edge
+    # # XX combined[((mag_binary == 1) & (hls_asphalt != 1))] = 255  # none Asphalt edge
     # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
 
