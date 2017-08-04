@@ -381,16 +381,19 @@ def process_image(image, weight=0.5):
 
     # 1) Undistort using mtx and dist
     undist = cv2.undistort(image, mtx, dist, None, mtx)
+    # return undist
     # return cv2.warpPerspective(undist, M, (undist.shape[1], undist.shape[0]), flags=cv2.INTER_LINEAR)  # debug code
 
 
     # 3) Create binary image via Combining Threshold
     combined = create_binary_image(undist)
+    # combined *= 255
     # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
 
     # 4) Perspective Transform
     binary_warped = cv2.warpPerspective(combined, M, (combined.shape[1], combined.shape[0]), flags=cv2.INTER_NEAREST)
+    # binary_warped *= 255
     # return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2RGB)  # debug code
 
 
@@ -410,7 +413,7 @@ def process_image(image, weight=0.5):
     if c_right_fit[2] != 0:
         for x, y in zip(right_fitx, ploty):
             cv2.circle(out_img, (int(x), int(y)), 1, color=[200, 200, 255], thickness=1)
-
+    # return out_img
 
     # 6) Determine the lane curvature
     global left_curverad, right_curverad
@@ -490,11 +493,11 @@ def process_image(image, weight=0.5):
     left_fitx = left_fit[0] * ploty**2 + left_fit[1] * ploty + left_fit[2]
     right_fitx = right_fit[0] * ploty**2 + right_fit[1] * ploty + right_fit[2]
     for x, y in zip(left_fitx, ploty):
-        cv2.circle(out_img, (int(x), int(y)), 1, color=[255, 0, 200], thickness=2)
+        cv2.circle(out_img, (int(x), int(y)), 1, color=[255, 100, 100], thickness=2)
     for x, y in zip(right_fitx, ploty):
-        cv2.circle(out_img, (int(x), int(y)), 1, color=[200, 0, 255], thickness=2)
+        cv2.circle(out_img, (int(x), int(y)), 1, color=[100, 100, 255], thickness=2)
 
-
+    # return out_img
 
 
     # 7-5) Determine Curvature Value
