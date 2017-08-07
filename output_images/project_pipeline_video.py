@@ -461,12 +461,12 @@ def process_image(image, weight=0.5):
     font = cv2.FONT_HERSHEY_DUPLEX
     # infotext = 'offset {:+4.1f}m, curvature left:{:.1f}m,  right:{:.1f}m'.format(vehicle_offset, left_curverad, right_curverad)
     if vehicle_offset < 0:
-        infotext = 'car position {:4.2f}m left , curvature {:7.1f}m'.format(-vehicle_offset, (left_curverad + right_curverad)/2)
+        infotext = 'car position {:4.2f}m left , curvature {:7.1f}m'.format(-vehicle_offset, (left_curverad + right_curverad) / 2)
     elif vehicle_offset > 0:
-        infotext = 'car position {:4.2f}m right, curvature {:7.1f}m'.format(vehicle_offset, (left_curverad + right_curverad)/2)
+        infotext = 'car position {:4.2f}m right, curvature {:7.1f}m'.format(vehicle_offset, (left_curverad + right_curverad) / 2)
     else:
         infotext = 'car position        center, curvature {:7.1f}m'.format((left_curverad + right_curverad)/2)
-    cv2.putText(undist, infotext, (30, 50), font, font_size, (255,255,255))
+    cv2.putText(undist, infotext, (30, 50), font, font_size, (255, 255, 255))
 
     return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
 

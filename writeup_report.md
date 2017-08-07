@@ -310,10 +310,13 @@ def measure_curvature(xs, ys, ym_per_pix, xm_per_pix):
     return curverad
 ```
 
-After some sanity checks at line 389-412, 
-the two curvature values would be used for the calculation the curvature of the lane.
+Here the calculated two curvature values are still candidates.
+The two curvature values would be used for the calculation the curvature of the lane after they pass some sanity checks at line 389-412.
 
-The sanity checks are 
+The sanity checks are consist of three functions as following code.
+"sanity_chack_polynomial()" removes fitted coefficient sets if their values are uncommon.
+"sanity_chack_curverad()" removes curvature values if they have a large variance from previous frame.
+"sanity_chack_roadwidth()" remove both fitted lines if they are not parallel.
 
     # 6) Sanity Check
 
@@ -340,67 +343,105 @@ The sanity checks are
         left_validity = False
 
 
-Sanity checks are implemented on the 
+After the sanity check,
+coefficients of the fitted lane lines and curvature values are stored as current frame's values,
+and then the car position in the lane is calculated, at line 413-435.
 
+    # 7) Update Status
 
+    # 7-1) Update Fitting Data
+    if c_left_fit[2] != 0 and left_validity:
+        left_fit = (left_fit + c_left_fit) / 2
+    if c_right_fit[2] != 0 and right_validity:
+        right_fit = (right_fit + c_right_fit) / 2
+    # if left_validity:
+    #     left_fit = c_left_fit
+    # if right_validity:
+    #     right_fit = c_right_fit
 
+    # 7-2) Determine Curvature Value
+    if left_curverad == 0 or left_validity:
+        left_curverad = c_left_curverad
+    if right_curverad == 0 or right_validity:
+        right_curverad = c_right_curverad
 
-The radius of curvature of the lane and the position of the vehicle with respect to center
-center
-
-
-
-line 428-432
-
-    # 6-6) Detect car position in the lane
+    # 7-3) Detect car position in the lane
     left_fitx, right_fitx, ploty = fit_quadratic_polynomial(left_fit, right_fit, binary_warped)
     lane_center = (left_fitx[-1] + right_fitx[-1]) / 2
     vehicle_offset = 1280 / 2 - lane_center
     vehicle_offset *= xm_per_pix
 
-
-
-I did this in lines # through # in my code in `my_other_file.py`
-
-
-
 ###2.6. An example image plotted back down onto the road the lane area
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+This code output an overlaied image for each frames at line 437-471.
+
+    # 8)Drawing
+
+    # Create an image to draw the lines on
+    warp_zero = np.zeros_like(binary_warped).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
+
+    center_fitx = (right_fitx + left_fitx) / 2
+    for x, y in zip(center_fitx, ploty):
+        cv2.circle(color_warp, (int(x), int(y)), 1, color=[255, 255, 255], thickness=8)
+
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    # newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
+    newwarp = warper(color_warp, Minv)
+
+    # Combine the result with the original image
+    font_size = 1.2
+    font = cv2.FONT_HERSHEY_DUPLEX
+    # infotext = 'offset {:+4.1f}m, curvature left:{:.1f}m,  right:{:.1f}m'.format(vehicle_offset, left_curverad, right_curverad)
+    if vehicle_offset < 0:
+        infotext = 'car position {:4.2f}m left , curvature {:7.1f}m'.format(-vehicle_offset, (left_curverad + right_curverad) / 2)
+    elif vehicle_offset > 0:
+        infotext = 'car position {:4.2f}m right, curvature {:7.1f}m'.format(vehicle_offset, (left_curverad + right_curverad) / 2)
+    else:
+        infotext = 'car position        center, curvature {:7.1f}m'.format((left_curverad + right_curverad)/2)
+    cv2.putText(undist, infotext, (30, 50), font, font_size, (255, 255, 255))
+
+    return cv2.addWeighted(undist, 1, newwarp, 0.3, 0)
+
+Following figure is an example image which is overlaid with road area by green color, the current car position and the curvature of the lane.
 
 <img width=600 src="output_images/fig/30finalimage/project_video_0300fr.jpg">
-
-
-
-###2.7. Sanity checks
-
-
 
 ---
 
 ##3. Pipeline (video)
 
-The code for this step is contained in "output_images/project_pipeline_video.py".
+The code for this step is contained in "output_images/project_pipeline_video.py".  
+The content of processing is similar to the pipeline for single images, except of its output is to mp4 video files not on the display.
 
+Here is [a result for project_video.mp4](./output_images/project_video_out.mp4).
 
-###3.1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
-project_pipeline_video.py
+And here is [a result for challenge_video.mp4](./output_images/challenge_video_out.mp4).
 
-Here's a [link to my video result](./project_video.mp4)
-
-https://github.com/somof/CarND-Advanced-Lane-Lines-work/
-
-https://github.com/somof/CarND-Advanced-Lane-Lines-work/output_images/project_video.mp4
-
-https://github.com/somof/CarND-Advanced-Lane-Lines-work/output_images/project_video.mp4
 
 ---
 
 ##4. Conclusion
 
+###4.1 Discussion; How to create binary images with stable quality
+Just among three videos, it was really diffucult for me to tune the pipeline to work well with same parameters.
+Creating binary images has the most important issue, I guess, because all latter process are affected seriously.
 
-###4.1 Discussion
+###4.2 Discussion; How to handle consecutive failure frames.
+When the detection process fails for consecutive multiple frames, should I somehow create groundless something or keep former examined value (but no longer available) ?
 
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+On this project, I tried to restrict the pixel number of the lane lines and interpolate the deficit via rule-base way.
+But I can not reach good mwthod.
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+All techniques I tried on the project may not have practical performance for the autonomous car.
+
+
+EOF
