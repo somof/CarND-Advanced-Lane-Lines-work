@@ -1,27 +1,11 @@
 
-# importing some useful packages
-import os
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import matplotlib.animation as animation
 import numpy as np
 import cv2
-from PIL import Image
-
-import glob
-import scipy as sc
-from scipy import stats
-from sklearn import linear_model, datasets
-import math
-
-# Import everything needed to edit/save/watch video clips
 from moviepy.editor import VideoFileClip
-from IPython.display import HTML
-
+import pickle
 
 # Read in the saved camera matrix and distortion coefficients
 # These are the arrays you calculated using cv2.calibrateCamera()
-import pickle
 dist_pickle = pickle.load(open("wide_dist_pickle.p", "rb"))
 mtx = dist_pickle["mtx"]
 dist = dist_pickle["dist"]
@@ -91,6 +75,7 @@ def hls_select(image, hthresh=(0, 255), sthresh=(0, 255), ithresh=(0, 255)):
                    ((i_channel >= ithresh[0]) & (i_channel <= ithresh[1])))] = 1
     return binary_output
 
+
 def rgb_select(image, rthresh=(0, 255), gthresh=(0, 255), bthresh=(0, 255)):
     b_channel = image[:, :, 0]
     g_channel = image[:, :, 1]
@@ -144,13 +129,6 @@ def create_binary_image(image):
     # hls_binary = hls_select(image, hthresh=(50, 100), ithresh=(0, 255), sthresh=(90, 190))  # Asphalt color
     hls_binary = hls_select(image, hthresh=(0, 255), ithresh=(0, 255), sthresh=(90, 190))  # Asphalt color
 
-    # 2) Yellow Line
-    hls_yellow1 = hls_select(image, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
-    hls_yellow2 = hls_select(image, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
-
-    rgb_white = rgb_select(image, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
-    rgb_excess = rgb_select(image, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
-
     # 3) Concrete
     hls_binary2 = hls_select(image, hthresh=(50, 100), ithresh=(0, 255), sthresh=(90, 190))  # shadow
 
@@ -159,6 +137,7 @@ def create_binary_image(image):
     combined[((gradx == 1) | (grady == 1) | ((mag_binary == 1) & (dir_binary == 1)) | (hls_binary == 1)) & (hls_binary2 != 1)] = 1
 
     return combined
+
 
 def get_base_position(image, pos='left'):
     """
@@ -196,7 +175,6 @@ def sliding_windows_search(image):
     # Get two base positions from the histgram
     leftx_base = get_base_position(image, 'left')
     rightx_base = get_base_position(image, 'right')
-
 
     # Choose the number of sliding windows
     nwindows = 9
@@ -242,7 +220,7 @@ def sliding_windows_search(image):
         cv2.rectangle(out_img, (win_xleft_low, win_y_low), (win_xleft_high, win_y_high), (0, 255, 0), 2)
         cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
         # Identify the nonzero pixels in x and y within the window
-        good_left_index  = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
+        good_left_index = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_index = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
         # Append these indices to the lists
         left_lane_index.append(good_left_index)
@@ -313,7 +291,7 @@ def sanity_chack_polynomial(fit, pre_fit, thresh0=(-0.0007, 0.0007), thresh1=(-0
         return True, fit
 
     diff = pre_fit - fit
-    
+
     if diff[0] < thresh0[0] or thresh0[1] < diff[0]:
         return False, fit
     if diff[1] < thresh1[0] or thresh1[1] < diff[1]:
@@ -322,6 +300,7 @@ def sanity_chack_polynomial(fit, pre_fit, thresh0=(-0.0007, 0.0007), thresh1=(-0
         return False, fit
 
     return True, fit
+
 
 def sanity_chack_curverad(left_curverad, right_curverad, diff_curverad_thresh=40):
     global pre_left_curverad, pre_right_curverad
@@ -368,14 +347,11 @@ def process_image(image, weight=0.5):
     # 1) Undistort using mtx and dist
     undist = cv2.undistort(image, mtx, dist, None, mtx)
 
-
     # 2) Create binary image via Combining Threshold
     combined = create_binary_image_light(undist)
 
-
     # 3) Perspective Transform
     binary_warped = warper(combined, M)
-
 
     # 4) Find Lanes via Sliding Windows: 1st Method
 
@@ -393,15 +369,14 @@ def process_image(image, weight=0.5):
     if c_right_fit[1] == 0:
         right_validity = False
 
-
     # 5) Determine the lane curvature
     global left_fit, right_fit
     global pre_left_fit, pre_right_fit
     global left_curverad, right_curverad
     global pre_left_curverad, pre_right_curverad
 
-    ym_per_pix = 30 / 720 # meters per pixel in y dimension
-    xm_per_pix = 3.7 / 700 # meters per pixel in x dimension
+    ym_per_pix = 30 / 720  # meters per pixel in y dimension
+    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
 
     c_left_curverad = measure_curvature(left_fitx, ploty, ym_per_pix=ym_per_pix, xm_per_pix=xm_per_pix)
     c_right_curverad = measure_curvature(right_fitx, ploty, ym_per_pix=ym_per_pix, xm_per_pix=xm_per_pix)
@@ -410,7 +385,6 @@ def process_image(image, weight=0.5):
         left_curverad = c_left_curverad
     if right_curverad == 0:
         right_curverad = c_right_curverad
-
 
     # 6) Sanity Check
 
@@ -436,7 +410,9 @@ def process_image(image, weight=0.5):
         right_validity = False
         left_validity = False
 
-    # 6-5) Update Fitting Data and Determine Curvature Value
+    # 7) Update Status
+
+    # 7-1) Update Fitting Data
     if c_left_fit[2] != 0 and left_validity:
         left_fit = (left_fit + c_left_fit) / 2
     if c_right_fit[2] != 0 and right_validity:
@@ -446,19 +422,19 @@ def process_image(image, weight=0.5):
     # if right_validity:
     #     right_fit = c_right_fit
 
+    # 7-2) Determine Curvature Value
     if left_curverad == 0 or left_validity:
         left_curverad = c_left_curverad
     if right_curverad == 0 or right_validity:
         right_curverad = c_right_curverad
 
-    # 6-6) Detect car position in the lane
+    # 7-3) Detect car position in the lane
     left_fitx, right_fitx, ploty = fit_quadratic_polynomial(left_fit, right_fit, binary_warped)
     lane_center = (left_fitx[-1] + right_fitx[-1]) / 2
     vehicle_offset = 1280 / 2 - lane_center
     vehicle_offset *= xm_per_pix
 
-
-    # Drawing 
+    # 8)Drawing
 
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(binary_warped).astype(np.uint8)
@@ -470,14 +446,14 @@ def process_image(image, weight=0.5):
     pts = np.hstack((pts_left, pts_right))
 
     # Draw the lane onto the warped blank image
-    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+    cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
 
     center_fitx = (right_fitx + left_fitx) / 2
     for x, y in zip(center_fitx, ploty):
         cv2.circle(color_warp, (int(x), int(y)), 1, color=[255, 255, 255], thickness=8)
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    # newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
+    # newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0]))
     newwarp = warper(color_warp, Minv)
 
     # Combine the result with the original image
@@ -496,8 +472,6 @@ def process_image(image, weight=0.5):
 
 
 ######################################
-# process frame by frame for developing
-
 # source and destination points
 # Given src and dst points, calculate the perspective transform matrix
 
@@ -513,58 +487,54 @@ perspective_src = np.float32([[585, 460], [695, 460], [1127, 685], [203, 685]]) 
 (width, height) = (1280, 720)
 perspective_dst = np.float32([[320, 0], [width - 320, 0], [width - 320, height - 0], [320, height - 0]])
 
-
 # Calculate the Perspective Transformation Matrix and its invert Matrix
 M = cv2.getPerspectiveTransform(perspective_src, perspective_dst)
 Minv = cv2.getPerspectiveTransform(perspective_dst, perspective_src)
 
+######################################
+# output to video files
 
-trapezoid = []
-trapezoid.append([[perspective_src[0][0], perspective_src[0][1], perspective_src[1][0], perspective_src[1][1]]])
-trapezoid.append([[perspective_src[1][0], perspective_src[1][1], perspective_src[2][0], perspective_src[2][1]]])
-trapezoid.append([[perspective_src[2][0], perspective_src[2][1], perspective_src[3][0], perspective_src[3][1]]])
-trapezoid.append([[perspective_src[3][0], perspective_src[3][1], perspective_src[0][0], perspective_src[0][1]]])
+left_fit = [0, 0, 360]
+right_fit = [0, 0, 920]
+pre_left_fit = [0, 0, 0]
+pre_right_fit = [0, 0, 0]
 
-for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
-    clip1 = VideoFileClip('./' + file)
+left_curverad = 0
+right_curverad = 0
+pre_left_curverad = 0
+pre_right_curverad = 0
 
-    left_fit = [0, 0, 360]
-    right_fit = [0, 0, 920]
-    pre_left_fit = [0, 0, 0]
-    pre_right_fit = [0, 0, 0]
+white_output = './project_video_out.mp4'
+clip1 = VideoFileClip('../project_video.mp4')
+white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+white_clip.write_videofile(white_output, audio=False)
 
-    left_curverad = 0
-    right_curverad = 0
-    pre_left_curverad = 0
-    pre_right_curverad = 0
+left_fit = [0, 0, 360]
+right_fit = [0, 0, 920]
+pre_left_fit = [0, 0, 0]
+pre_right_fit = [0, 0, 0]
 
-    frameno = 0
-    for frame in clip1.iter_frames():
-        if frameno % 1 == 0 and frameno < 1500:
-            # print('frameno: {:5.0f}'.format(frameno))
-            result = process_image(frame)
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            draw_lines(frame, trapezoid, color=[100, 100, 180], thickness=2)
+left_curverad = 0
+right_curverad = 0
+pre_left_curverad = 0
+pre_right_curverad = 0
 
-            result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
-            img = cv2.vconcat([cv2.resize(frame, (800, 380)),
-                               cv2.resize(result, (800, 380))])
+white_output = './challenge_video_out.mp4'
+clip1 = VideoFileClip('../challenge_video.mp4')
+white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+white_clip.write_videofile(white_output, audio=False)
 
-            # cv2.imshow('result', result)
-            cv2.imshow('frame', img)
+left_fit = [0, 0, 360]
+right_fit = [0, 0, 920]
+pre_left_fit = [0, 0, 0]
+pre_right_fit = [0, 0, 0]
 
-            # if frameno % 100 == 0:
-            #     name, ext = os.path.splitext(os.path.basename(file))
-            #     filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
-            #     if not os.path.exists(filename):
-            #         cv2.imwrite(filename, img)
-            # if frameno == 300:
-            #     name, ext = os.path.splitext(os.path.basename(file))
-            #     filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
-            #     cv2.imwrite(filename, img)
-            #     exit(0)
-        frameno += 1
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+left_curverad = 0
+right_curverad = 0
+pre_left_curverad = 0
+pre_right_curverad = 0
 
-cv2.destroyAllWindows()
+white_output = './harder_challenge_video_out.mp4'
+clip1 = VideoFileClip('../harder_challenge_video.mp4')
+white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+white_clip.write_videofile(white_output, audio=False)

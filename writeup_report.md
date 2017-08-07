@@ -229,6 +229,27 @@ Following figure shows the two polynomials and the execursions.
 
 ###2.5. The radius of curvature of the lane and the position of the vehicle
 
+"measure_curvature(xs, ys, ym_per_pix, xm_per_pix)" function
+in the code calculates the radius of curvature of the left and right line.
+
+The formula in the function is equivalent to one in the lesson.
+
+```
+def measure_curvature(xs, ys, ym_per_pix, xm_per_pix):
+    # Fit new polynomials to x,y in world space
+    fit_cr = np.polyfit(ys * ym_per_pix, xs * xm_per_pix, 2)
+    # Calculate the new radii of curvature
+    y_eval = np.max(ys)
+    curverad = ((1 + (2 * fit_cr[0] * y_eval * ym_per_pix + fit_cr[1]) ** 2) ** 1.5) / np.absolute(2 * fit_cr[0])
+    # Now our radius of curvature is in meters
+    return curverad
+```
+
+After some sanity checks, the two curvature values would be used for the calculation the curvature of thr lane.
+
+Sanity checks are implemented on the 
+
+
 
 
 The radius of curvature of the lane and the position of the vehicle with respect to center
@@ -236,17 +257,30 @@ center
 
 
 
+line 428-432
+
+    # 6-6) Detect car position in the lane
+    left_fitx, right_fitx, ploty = fit_quadratic_polynomial(left_fit, right_fit, binary_warped)
+    lane_center = (left_fitx[-1] + right_fitx[-1]) / 2
+    vehicle_offset = 1280 / 2 - lane_center
+    vehicle_offset *= xm_per_pix
+
+
+
 I did this in lines # through # in my code in `my_other_file.py`
 
 
 
-###2.6. 
-
-###2.7. An example image plotted back down onto the road the lane area
+###2.6. An example image plotted back down onto the road the lane area
 
 I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
 
 <img width=600 src="fig/30finalimage/project_video_0300fr.jpg">
+
+
+
+###2.7. Sanity checks
+
 
 
 ---
@@ -259,7 +293,9 @@ project_pipeline_video.py
 Here's a [link to my video result](./project_video.mp4)
 
 https://github.com/somof/CarND-Advanced-Lane-Lines-work/
+
 https://github.com/somof/CarND-Advanced-Lane-Lines-work/output_images/project_video.mp4
+
 https://github.com/somof/CarND-Advanced-Lane-Lines-work/output_images/project_video.mp4
 
 ---
