@@ -41,15 +41,14 @@ img_size = (img.shape[1], img.shape[0])
 # Do camera calibration given object points and image points
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, img_size, None, None)
 
+dst = cv2.undistort(img, mtx, dist, None, mtx)
+cv2.imwrite('test_undist.jpg', dst)
+
 # Save the camera calibration result for later use (we won't worry about rvecs / tvecs)
 dist_pickle = {}
 dist_pickle["mtx"] = mtx
 dist_pickle["dist"] = dist
 pickle.dump( dist_pickle, open("wide_dist_pickle.p", "wb"))
-
-
-dst = cv2.undistort(img, mtx, dist, None, mtx)
-cv2.imwrite('test_undist.jpg', dst)
 
 # Visualize undistortion
 f, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 9))
