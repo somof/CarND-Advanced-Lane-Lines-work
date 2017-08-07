@@ -4,7 +4,7 @@
 
 ###1.1 Computation of the camera calibration matrix and distortion coefficients 
 
-The code for this step is contained in "project_code01.py".  
+The code for this step is contained in "project_camera_caliblation.py".  
 It corrects 3D "object points" and 2D "image points".
 
 "object points" is a list of 3D position, like (x, y, z), at which the checker board corners should exist in the world position.  
@@ -40,7 +40,6 @@ if ret:
     
     objpoints.append(objp)
     imgpoints.append(corners)
-
 ```
 
 This process is repeated for 20 images in the "camera_cal" folder.  
@@ -73,6 +72,8 @@ There is not specific difference between pixel and subpixel precision for this p
 
 ##2. Pipeline (single images)
 
+"project_pipeline.py" is for this pipeline.
+
 ###2.1. Distortion Correction
 Following images are a sample input image and its undistorted image.  
 It shows bented objects, like lanes and flyover roads, on the input image are corrected via the undistortion process described above.
@@ -89,55 +90,82 @@ so I tried to restrict each target objects to detect.
 
 ####2.2.1 Edge on the Road
 
-First, I got binary images via edge based method lectured on the lesson.
+First, I got binary images via edge based method lectured on the lesson as following code and a sample result image.
+
+    # Line Edge
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    ksize = 3  # Choose a larger odd number to smooth gradient measurements
+    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(25, 50))
+    grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(50, 150))
+    mag_binary = mag_thresh(gray, sobel_kernel=15, mag_thresh=(50, 250))
+    dir_binary = dir_threshold(gray, sobel_kernel=7, thresh=(0.7, 1.3))
+    hls_binary = hls_select(image, hthresh=(0, 255), ithresh=(0, 255), sthresh=(90, 190))  # Asphalt color
+
+    combined = np.zeros((mag_binary.shape), dtype=np.uint8)
+    combined[((gradx == 1) | (grady == 1) | ((mag_binary == 1) & (dir_binary == 1)) | (hls_binary == 1)) & (hls_binary2 != 1)] = 1
+
+<img width=600 src="fig/edge/project_video_0300fr.jpg">
+
 It works very well but has some issues as follows.
 
 - weak at yellow lines
 - strong shades and shadows cause failure at lane-detecton
 
-TODO 画像を用意する
+Next, I made some other filters.
 
 ####2.2.2 Two types of Yellow line
 I checked three videos, and found there are roughly two types of Yellow-line.
 Because they have a little bit different Hue and Luminance, so I have two set of thresholds for them.
 
-TODO codeを用意する
+    # Yellow Line
+    hls_yellow1 = hls_select(image, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
+    hls_yellow2 = hls_select(image, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
+    
+    combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 1  # yellow lines
 
-TODO 画像を用意する
-
-<img width=600 src="fig/yellow/project_video_0000fr.jpg">
+<img width=600 src="fig/yellow/project_video_0300fr.jpg">
+<img width=600 src="fig/yellow/challenge_video_0000fr.jpg">
 
 ####2.2.3 White line
 Egde-base method detects white lines but as hollow shapes.
-Because Sliding-windows method for lane detection estimates lines with the number of pixles in each window, solid shapes would be matched with the method.
+Because Sliding-windows method for lane detection estimates lines with the number of pixles in each window, solid shapes would be matched to the method.
 
-White color has no specific Hue
+The code to detect white lines as splid shape and the result image are as follows.
 
-- not excessively exposed area
+    # White Line
+    rgb_white = rgb_select(image, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
+    rgb_excess = rgb_select(image, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
+    
+    combined[((rgb_white == 1) & (rgb_excess != 1))] = 1  # White line
 
-
-TODO 画像を用意する
-
-####2.2.4 Not boundary line on asphalt
-
-- strong shades and shadows cause failure at lane-detecton
-
-TODO 画像を用意する
-
-####2.2.5 Not excessively exposed area
-TODO 画像を用意する
-
-- not boundary line on asphalt
+<img width=600 src="fig/white/project_video_0300fr.jpg">
 
 
+####2.2.4 Combined binary image
+I had a easy comparison between two types of the combination way as follows.
 
-####2.2.6 Combined binary image
-TODO 画像を用意する
+One is edge-detection based algorithm.
+This would be adaptable to any camera exposure conditions.
 
-論理演算
+    # edge-detection based algorithm.
+    combined = np.zeros((mag_binary.shape), dtype=np.uint8)
+    combined[((gradx == 1) | (grady == 1) | ((mag_binary == 1) & (dir_binary == 1)) | (hls_binary == 1)) & (hls_binary2 != 1)] = 1
 
- on the binary images as following.  
-Here's an example of my output for this step.
+Another is a simple and light algorithm.
+This would be weak at variable camera exposure conditions, but is estimatable in a shorter time than edge-detection based method.
+
+    # light algorithm
+    combined = np.zeros((rgb_white.shape), dtype=np.uint8)
+    combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 1  # yellow line
+    combined[((rgb_white == 1) & (rgb_excess != 1))] = 1  # White line
+
+Ragarding to the target videos, "project_video.mp4" and "challenge_video.mp4", 
+there is not specific difference in performance with the sliding windows search.
+
+So I take the latter light algorithm for the report to create output videos.
+
+This step in the code is shown in the function "create_binary_image(image)" or "create_binary_image_light(image)".
+And the sample of the result is as follows.
 
 <img width=600 src="fig/03binary/project_video_0300fr.jpg">
 
@@ -194,18 +222,25 @@ Following figure shows the two polynomials and the execursions.
 
 <img width=600 src="fig/10slidingsearch/project_video_0300fr.jpg">
 
-
-###2.5. 
+<!--
 <img width=600 src="fig/15slidingsearch/project_video_0300fr.jpg">
 <img width=600 src="fig/20filtered/project_video_0300fr.jpg">
+-->
+
+###2.5. The radius of curvature of the lane and the position of the vehicle
 
 
-###2.6. The radius of curvature of the lane and the position of the vehicle with respect to center
+
+The radius of curvature of the lane and the position of the vehicle with respect to center
+center
+
+
 
 I did this in lines # through # in my code in `my_other_file.py`
 
 
 
+###2.6. 
 
 ###2.7. An example image plotted back down onto the road the lane area
 
@@ -219,6 +254,7 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 ##3. Pipeline (video)
 
 ###3.1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+project_pipeline_video.py
 
 Here's a [link to my video result](./project_video.mp4)
 
