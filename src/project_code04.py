@@ -159,9 +159,8 @@ def rgb_select(image, rthresh=(0, 255), gthresh=(0, 255), bthresh=(0, 255)):
     return binary_output
 
 
-def warper(img, src, dst):
+def warper(img, M):
     # Compute and apply perpective transform
-    M = cv2.getPerspectiveTransform(src, dst)
     warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_NEAREST)  # keep same size as input image
     return warped
 
@@ -170,12 +169,18 @@ def warper(img, src, dst):
 # source and destination points
 # Given src and dst points, calculate the perspective transform matrix
 
-# perspective_src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])
+# perspective_src = np.float32([[631, 425], [649, 425], [1055, 675], [265, 675]])  # trial
+# perspective_src = np.float32([[600, 440], [640, 440], [1105, 675], [295, 675]])  # trial
 # perspective_src = np.float32([[585, 460], [695, 460], [1127, 720], [203, 720]])  # sample data
 # perspective_src = np.float32([[585, 460], [695, 460], [1127, 700], [203, 700]])  # ignore bonnet
 # perspective_src = np.float32([[582, 460], [698, 460], [1127, 695], [203, 695]])  # a little adjustment
 # perspective_src = np.float32([[585, 460], [695, 460], [1127, 695], [203, 695]])  # a little adjustment
+
 perspective_src = np.float32([[585, 460], [695, 460], [1127, 685], [203, 685]])  # prevent bonnnet
+# perspective_src = np.float32([[600, 440], [640, 440], [1105, 675], [295, 675]])  # trial
+
+
+
 (width, height) = (1280, 720)
 perspective_dst = np.float32([[320, 0], [width - 320, 0], [width - 320, height - 0], [320, height - 0]])
 
@@ -216,8 +221,8 @@ def create_binary_image(image):
     hls_yellow1 = hls_select(image, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
     hls_yellow2 = hls_select(image, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
 
+    # OK but short
     rgb_white = rgb_select(image, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
-    # rgb_white = rgb_select(image, rthresh=(190, 255), gthresh=(190, 255), bthresh=(190, 255))  # white line
     rgb_excess = rgb_select(image, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
 
     # combined = np.zeros_like(dir_binary)
@@ -226,6 +231,46 @@ def create_binary_image(image):
     combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 1  # yellow line
     combined[((rgb_white == 1) & (rgb_excess != 1))] = 1  # White line
     # combined[((mag_binary == 1) & (hls_asphalt != 1))] = 1  # none Asphalt edge
+    return combined
+
+
+def create_binary_image_2nd(image):
+    # 1) Convert to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    # gray = gaussian_blur(gray, kernel_size=5)
+
+    # Apply each of the thresholding functions
+    ksize = 3  # Choose a larger odd number to smooth gradient measurements
+    gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(25, 50))
+    grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(50, 150))
+    mag_binary = mag_thresh(gray, sobel_kernel=15, mag_thresh=(50, 250))
+    dir_binary = dir_threshold(gray, sobel_kernel=7, thresh=(0.7, 1.3))
+    # hls_binary = hls_select(image, hthresh=(50, 100), ithresh=(0, 255), sthresh=(90, 190))  # Asphalt color
+    hls_binary = hls_select(image, hthresh=(0, 255), ithresh=(0, 255), sthresh=(90, 190))  # Asphalt color
+
+    # 2) Yellow Line
+    hls_yellow1 = hls_select(image, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
+    hls_yellow2 = hls_select(image, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
+
+    rgb_white = rgb_select(image, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
+    rgb_excess = rgb_select(image, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
+
+    # 3) Concrete
+    # hls_concrete = hls_select(image, hthresh=(50, 100), ithresh=(0, 255), sthresh=(90, 190))  # Asphalt color
+    
+
+    hls_binary2 = hls_select(image, hthresh=(50, 100), ithresh=(0, 255), sthresh=(90, 190))  # shadow
+
+
+    # combined = np.zeros_like(dir_binary)
+    combined = np.zeros((mag_binary.shape), dtype=np.uint8)
+    # combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 1  # yellow line
+    # combined[((rgb_white == 1) & (rgb_excess != 1))] = 1  # White line
+
+    # combined[((gradx == 1) | (grady == 1) | ((mag_binary == 1) & (dir_binary == 1)) | (hls_binary == 1))] = 1
+    combined[((gradx == 1) | (grady == 1) | ((mag_binary == 1) & (dir_binary == 1)) | (hls_binary == 1)) & (hls_binary2 != 1)] = 1
+
+
     return combined
 
 def get_base_position(image, pos='left'):
@@ -370,6 +415,53 @@ def measure_curvature(xs, ys, ym_per_pix, xm_per_pix):
     return curverad
 
 
+def window_mask(width, height, img_ref, center, level):
+    output = np.zeros_like(img_ref)
+    output[int(img_ref.shape[0] - (level + 1) * height):int(img_ref.shape[0] - level*height),
+           max(0, int(center - width / 2)):min(int(center + width / 2), img_ref.shape[1])] = 1
+    return output
+
+
+def find_window_centroids(image, window_width, window_height, margin):
+
+    window_centroids = []  # Store the (left,right) window centroid positions per level
+    window = np.ones(window_width)  # Create our window template that we will use for convolutions
+
+    # First find the two starting positions for the left and right lane by using np.sum to get the vertical image slice
+    # and then np.convolve the vertical image slice with the window template 
+
+    # Sum quarter bottom of image to get slice, could use a different ratio
+    l_sum = np.sum(image[int(3 * image.shape[0] / 4):, :int(image.shape[1] / 2)], axis=0)
+    l_center = np.argmax(np.convolve(window, l_sum)) - window_width / 2
+    r_sum = np.sum(image[int(3 * image.shape[0] / 4):, int(image.shape[1] / 2):], axis=0)
+    r_center = np.argmax(np.convolve(window, r_sum)) - window_width/2+int(image.shape[1] / 2)
+
+    # Add what we found for the first layer
+    window_centroids.append((l_center, r_center))
+
+    # Go through each layer looking for max pixel locations
+    for level in range(1, (int)(image.shape[0] / window_height)):
+        # convolve the window into the vertical slice of the image
+        image_layer = np.sum(image[int(image.shape[0]
+                                       - (level + 1) * window_height):int(image.shape[0]
+                                                                          - level * window_height), :], axis=0)
+        conv_signal = np.convolve(window, image_layer)
+        # Find the best left centroid by using past left center as a reference
+        # Use window_width/2 as offset because convolution signal reference is at right side of window, not center of window
+        offset = window_width/2
+        l_min_index = int(max(l_center+offset - margin, 0))
+        l_max_index = int(min(l_center+offset + margin, image.shape[1]))
+        l_center = np.argmax(conv_signal[l_min_index:l_max_index]) + l_min_index - offset
+        # Find the best right centroid by using past right center as a reference
+        r_min_index = int(max(r_center+offset - margin, 0))
+        r_max_index = int(min(r_center+offset + margin, image.shape[1]))
+        r_center = np.argmax(conv_signal[r_min_index:r_max_index]) + r_min_index - offset
+        # Add what we found for that layer
+        window_centroids.append((l_center, r_center))
+
+    return window_centroids
+
+
 left_fit = [0, 0, 360]
 right_fit = [0, 0, 920]
 left_curverad = 0
@@ -377,22 +469,25 @@ right_curverad = 0
 pre_left_curverad = 0
 pre_right_curverad = 0
 
+
 def process_image(image, weight=0.5):
 
     # 1) Undistort using mtx and dist
-    undist = cv2.undistort(image, mtx, dist, None, mtx)
+    # undist = cv2.undistort(image, mtx, dist, None, mtx)
     # return undist
     # return cv2.warpPerspective(undist, M, (undist.shape[1], undist.shape[0]), flags=cv2.INTER_LINEAR)  # debug code
-
+    undist = image
 
     # 3) Create binary image via Combining Threshold
-    combined = create_binary_image(undist)
-    # combined *= 255
-    # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
+    # combined = create_binary_image(undist)
+    combined = create_binary_image_2nd(undist)
+    combined *= 255
+    return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
 
     # 4) Perspective Transform
-    binary_warped = cv2.warpPerspective(combined, M, (combined.shape[1], combined.shape[0]), flags=cv2.INTER_NEAREST)
+    # binary_warped = cv2.warpPerspective(combined, M, (combined.shape[1], combined.shape[0]), flags=cv2.INTER_NEAREST)
+    binary_warped = warper(combined, M)
     # binary_warped *= 255
     # return cv2.cvtColor(binary_warped, cv2.COLOR_GRAY2RGB)  # debug code
 
@@ -413,7 +508,7 @@ def process_image(image, weight=0.5):
     if c_right_fit[2] != 0:
         for x, y in zip(right_fitx, ploty):
             cv2.circle(out_img, (int(x), int(y)), 1, color=[200, 200, 255], thickness=1)
-    # return out_img
+    return out_img
 
     # 6) Determine the lane curvature
     global left_curverad, right_curverad
@@ -469,7 +564,7 @@ def process_image(image, weight=0.5):
     road_width_m = right_fitx[len(right_fitx)//2] - left_fitx[len(left_fitx)//2]
 
     road_width_thresh_min = 300
-    road_width_thresh_max = 1000
+    road_width_thresh_max = 1200
     if road_width < road_width_thresh_min or road_width_thresh_max < road_width:
         right_validity = False
         left_validity = False
@@ -556,7 +651,9 @@ def process_image(image, weight=0.5):
 
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
-    newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
+    # newwarp = cv2.warpPerspective(color_warp, Minv, (image.shape[1], image.shape[0])) 
+    newwarp = warper(color_warp, Minv)
+
     # Combine the result with the original image
     font_size = 1.2
     font = cv2.FONT_HERSHEY_DUPLEX
@@ -582,11 +679,11 @@ trapezoid.append([[perspective_src[1][0], perspective_src[1][1], perspective_src
 trapezoid.append([[perspective_src[2][0], perspective_src[2][1], perspective_src[3][0], perspective_src[3][1]]])
 trapezoid.append([[perspective_src[3][0], perspective_src[3][1], perspective_src[0][0], perspective_src[0][1]]])
 
-for l in range(1, 20):
+for l in range(1, 2):
     # for file in ('challenge_video.mp4', 'project_video.mp4', 'harder_challenge_video.mp4'):
-    for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+    # for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+    for file in ('project_video.mp4', ):
         clip1 = VideoFileClip('../' + file)
-        frameno = 0
         left_fit = [0, 0, 360]
         right_fit = [0, 0, 920]
         left_curverad = 0
@@ -594,8 +691,10 @@ for l in range(1, 20):
         pre_left_curverad = 0
         pre_right_curverad = 0
 
+        frameno = 0
         for frame in clip1.iter_frames():
-            if frameno % 10 == 0 and frameno < 1000:
+            if frameno % 10 == 0 and ((530 <= frameno and frameno < 620) or (950 <= frameno and frameno < 1100)):
+            # if 510 <= frameno and frameno < 590 and frameno % 5 == 0 and frameno < 640:
                 # print('frameno: {:5.0f}'.format(frameno))
                 result = process_image(frame)
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
@@ -604,33 +703,40 @@ for l in range(1, 20):
                 result = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
                 img = cv2.vconcat([cv2.resize(frame, (800, 380)),
                                    cv2.resize(result, (800, 380))])
+
                 # cv2.imshow('result', result)
                 cv2.imshow('frame', img)
-                if frameno % 100 == 0:
+
+                if frameno % 10 == 0:
                     name, ext = os.path.splitext(os.path.basename(file))
                     filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
-                    # if not os.path.exists(filename):
-                    #     cv2.imwrite(filename, img)
+                    if not os.path.exists(filename):
+                        cv2.imwrite(filename, img)
+                # if frameno == 300:
+                #     name, ext = os.path.splitext(os.path.basename(file))
+                #     filename = '{}_{:04.0f}fr.jpg'.format(name, frameno)
+                #     cv2.imwrite(filename, img)
+                #     exit(0)
             frameno += 1
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
 cv2.destroyAllWindows()
-exit(0)
+# exit(0)
 
 ######################################
 
-white_output = '../project_video_out.mp4'
-clip1 = VideoFileClip('../project_video.mp4')
-white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
-white_clip.write_videofile(white_output, audio=False)
+# white_output = '../project_video_out.mp4'
+# clip1 = VideoFileClip('../project_video.mp4')
+# white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+# white_clip.write_videofile(white_output, audio=False)
 
-white_output = '../challenge_video_out.mp4'
-clip1 = VideoFileClip('../challenge_video.mp4')
-white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
-white_clip.write_videofile(white_output, audio=False)
+# white_output = '../challenge_video_out.mp4'
+# clip1 = VideoFileClip('../challenge_video.mp4')
+# white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+# white_clip.write_videofile(white_output, audio=False)
 
-white_output = '../harder_challenge_video_out.mp4'
-clip1 = VideoFileClip('../harder_challenge_video.mp4')
-white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
-white_clip.write_videofile(white_output, audio=False)
+# white_output = '../harder_challenge_video_out.mp4'
+# clip1 = VideoFileClip('../harder_challenge_video.mp4')
+# white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
+# white_clip.write_videofile(white_output, audio=False)

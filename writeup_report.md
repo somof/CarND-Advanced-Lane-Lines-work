@@ -1,63 +1,5 @@
 # **Advanced Lane Finding Project**
 
-The goals / steps of this project are the following:
-
-TODO 曲率を一つにする
-TODO レポート様に表示を変える
-
-
-主な提出物は詳細なレポート
-
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-  チェッカーボードの補正用係数を計算する
-  note these are 9x6 chessboard images, unlike the 8x6 images used in the lesson
-* Apply a distortion correction to raw images.
-  raw image ?? に適用する
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-  二値化イメージを作る
-  just visual verification
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-  鳥瞰図を作る
-* Detect lane pixels and fit to find the lane boundary.
-  レーン境界を合わせる
-* Determine the curvature of the lane and vehicle position with respect to center.
-  レーンの曲率と、車の位置を決める
-* Warp the detected lane boundaries back onto the original image.
-  検出したレーン境界を、元の画像にあてはめる
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
-  それを表示する
-
-追加メモ
-動画のキャリブはどうやって？
-
-3.66m 車線幅
-
-30m from lesson
-
-
-* Suggestions to Make Your Project Stand Out!
-  信頼性の高い検出結果を元に、次フレームを検索し、速度とロバスト性を向上させるなど
-  更に、 you should implement outlier rejection and use a low-pass filter to smooth the lane detection over frames, 
-         meaning add each new detection to a weighted mean of the position of the lines to avoid jitter.
-  その場合、 implement these methods on the challenge videos as well, or on your own videos you've recorded yourself.
-
-
-
-
-[//]: # (Image References)
-
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
-[image4]: ./examples/warped_straight_lines.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
-
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
-
----
-
-
 ##1. Camera Calibration
 
 ###1.1 Computation of the camera calibration matrix and distortion coefficients 
@@ -128,124 +70,149 @@ There is not specific difference between pixel and subpixel precision for this p
 <img width=600 src="fig/report_sec1_01.jpg">
 
 
-TODO ここから書き直す
 
 ##2. Pipeline (single images)
 
-###2.1. An example of a distortion-corrected image
+###2.1. Distortion Correction
+Following images are a sample input image and its undistorted image.  
+It shows bented objects, like lanes and flyover roads, on the input image are corrected via the undistortion process described above.
 
-Following images are a sample input image and a its undistorted image.  
-It shows bented objects on the input image are corrected via the undistortion process described above.
-
-![alt text][image2]
-
+<img width=600 src="fig/01undistorted/challenge_video_0100fr.jpg">
 
 
-###2.2. An example of a binary image
-
+###2.2. Binary Image Conversion
 This code for this step creates binary images for each frames in the input video.  
 The binary images are used to the latter finding-lanes process.
 
-Generally such binary images can have a lot of pseudo information to make troubles on line-finding algorithms.
-So I tried to restrict target objects to detect on the binary images as following.
+Generally, such binary images can have a lot of pseudo information to cause troubles on line-finding algorithms,
+so I tried to restrict each target objects to detect.
 
-- 2 types of Yellow line
-- White line
+####2.2.1 Edge on the Road
 
-Actually
+First, I got binary images via edge based method lectured on the lesson.
+It works very well but has some issues as follows.
 
-- not boundary line on asphalt
+- weak at yellow lines
+- strong shades and shadows cause failure at lane-detecton
+
+TODO 画像を用意する
+
+####2.2.2 Two types of Yellow line
+I checked three videos, and found there are roughly two types of Yellow-line.
+Because they have a little bit different Hue and Luminance, so I have two set of thresholds for them.
+
+TODO codeを用意する
+
+TODO 画像を用意する
+
+<img width=600 src="fig/yellow/project_video_0000fr.jpg">
+
+####2.2.3 White line
+Egde-base method detects white lines but as hollow shapes.
+Because Sliding-windows method for lane detection estimates lines with the number of pixles in each window, solid shapes would be matched with the method.
+
+White color has no specific Hue
+
 - not excessively exposed area
 
-####2.2.1 Two types of Yellow line
-TODO 画像を用意する
-####2.2.2 White line
-TODO 画像を用意する
-####2.2.3 Not boundary line on asphalt
-TODO 画像を用意する
-####2.2.4 Not excessively exposed area
-TODO 画像を用意する
-####2.2.5 Combined binary image
+
 TODO 画像を用意する
 
+####2.2.4 Not boundary line on asphalt
+
+- strong shades and shadows cause failure at lane-detecton
+
+TODO 画像を用意する
+
+####2.2.5 Not excessively exposed area
+TODO 画像を用意する
+
+- not boundary line on asphalt
 
 
 
-a perspective transform 
+####2.2.6 Combined binary image
+TODO 画像を用意する
 
-Color transforms, gradients or other methods to create a thresholded binary image.  
+論理演算
 
-Provide 
+ on the binary images as following.  
+Here's an example of my output for this step.
 
-
-
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
-
-
-
-```
-
-```
+<img width=600 src="fig/03binary/project_video_0300fr.jpg">
 
 
 
-![alt text][image3]
 
+###2.3. Perspective Transformation
+"warper()" functon in the code executes my perspective transform, which function takes as inputs an image "img" and an Matrix "M".
 
-
-###2.3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
-
-欲張って
-遠くまで見ると
-激しく暴れる
-
-解像度が必要
-
-
-
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
-
-```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
-```
-
-This resulted in the following source and destination points:
+"M" is supposed to be calculated in advance via cv2.getPerspectiveTransform() with following parameters.  
+These parameters are based on the values at "writeup_template.md" in the project, except avoiding the vehivle's bonnet.
 
 | Source        | Destination   | 
 |:-------------:|:-------------:| 
 | 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
+| 203, 685      | 320, 720      |
+| 1127, 685     | 960, 720      |
 | 695, 460      | 960, 0        |
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+<!-- <img width=600 src="fig/02perspective/project_video_0300fr.jpg"> -->
+<img width=600 src="fig/05perspective_bin/project_video_0300fr.jpg">
 
-![alt text][image4]
+Before I took the Udacity provided values, I had some trial to use farther road than the sample code, but could not get good result. 
+The video resolution don't seem to match at long distance roads and caused troubles at latter processes.  
+The failure parameters and the transformed image is as follows ().
 
-###2.4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
+| Source        | Destination   | 
+|:-------------:|:-------------:| 
+| 600, 440      | 320, 0        | 
+| 640, 440      | 320, 720      |
+| 1105, 675     | 960, 720      |
+| 295, 675      | 960, 0        |
 
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+<img width=400 src="fig/trial_perspective_project_video_0300fr.jpg">
 
-![alt text][image5]
+In addition to the result of the experiment, I don't have any information about distance in the videos except the sample parameters means actually 30m in the real world.
 
-###2.5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+
+
+###2.4. Lane-Line pixels and fitting positions with a polynomial
+
+"sliding_windows_search()" functon in the code executes my perspective transform, which function takes as inputs an binary image "image".
+
+This function is based on the first sample of "siliding windows search" in the lesson, and modified to have inertia when there is not enough number of good_index in a window.
+To prevent excessive inertia, sliding windows have overlapping.
+
+The function extracts two index lists for left and right lane-line.
+And the detected index points are approximated into a quadratic polynomial via numpy function "np.polyfit()".  
+So two sets of the quadratic polynomial coefficients are outputed from the function with a image which shows the execursions of the sliding-windows.
+
+<!-- <img width=600 src="examples/color_fit_lines.jpg"> -->
+
+Following figure shows the two polynomials and the execursions.
+
+<img width=600 src="fig/10slidingsearch/project_video_0300fr.jpg">
+
+
+###2.5. 
+<img width=600 src="fig/15slidingsearch/project_video_0300fr.jpg">
+<img width=600 src="fig/20filtered/project_video_0300fr.jpg">
+
+
+###2.6. The radius of curvature of the lane and the position of the vehicle with respect to center
 
 I did this in lines # through # in my code in `my_other_file.py`
 
-###2.6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+
+
+
+###2.7. An example image plotted back down onto the road the lane area
 
 I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
 
-![alt text][image6]
+<img width=600 src="fig/30finalimage/project_video_0300fr.jpg">
+
 
 ---
 
@@ -254,6 +221,10 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 ###3.1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
 Here's a [link to my video result](./project_video.mp4)
+
+https://github.com/somof/CarND-Advanced-Lane-Lines-work/
+https://github.com/somof/CarND-Advanced-Lane-Lines-work/output_images/project_video.mp4
+https://github.com/somof/CarND-Advanced-Lane-Lines-work/output_images/project_video.mp4
 
 ---
 

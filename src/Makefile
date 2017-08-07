@@ -10,7 +10,10 @@ endif
 
 
 all: 
-	${PYTHONC} project_code02.py
+	${PYTHONC} project_code04.py
+
+run: 
+	${PYTHONC} project_code04_1.py
 
 calib:
 	${PYTHONC} project_code01.py
