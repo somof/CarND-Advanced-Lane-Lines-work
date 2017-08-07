@@ -175,71 +175,46 @@ def warper(img, M):
 # perspective_src = np.float32([[585, 460], [695, 460], [1127, 700], [203, 700]])  # ignore bonnet
 # perspective_src = np.float32([[582, 460], [698, 460], [1127, 695], [203, 695]])  # a little adjustment
 # perspective_src = np.float32([[585, 460], [695, 460], [1127, 695], [203, 695]])  # a little adjustment
-
 perspective_src = np.float32([[585, 460], [695, 460], [1127, 685], [203, 685]])  # prevent bonnnet
 # perspective_src = np.float32([[600, 440], [640, 440], [1105, 675], [295, 675]])  # trial
-
-
 
 (width, height) = (1280, 720)
 perspective_dst = np.float32([[320, 0], [width - 320, 0], [width - 320, height - 0], [320, height - 0]])
 
 
+# Calculate the Perspective Transformation Matrix and its invert Matrix
 M = cv2.getPerspectiveTransform(perspective_src, perspective_dst)
 Minv = cv2.getPerspectiveTransform(perspective_dst, perspective_src)
 
-# for file in ('straight_lines1.jpg', 'straight_lines2.jpg', 'test1.jpg', 'test2.jpg', 'test3.jpg', 'test4.jpg', 'test5.jpg', 'test6.jpg'):
-#     print(file)
-#     img = cv2.imread('../test_images/' + file)
-#     img = cv2.undistort(img, mtx, dist, None, mtx)
-#     warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
-#     cv2.imshow('frame', warped)
-#     # cv2.imwrite('../output_images/be_' + file, warped)
-#     if cv2.waitKey(1000) & 0xFF == ord('q'):
-#         break
-# cv2.destroyAllWindows()
-# exit(0)
 
+def create_binary_image_light(image):
+    """
+    output a binary image that show lane lines
+    light algorithm
+    """
 
-def create_binary_image(image):
-    # Choose a Sobel kernel size
-
-    # 2) Convert to grayscale
-    # gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    # gray = gaussian_blur(gray, kernel_size=5)
-
-    # Apply each of the thresholding functions
-    # ksize = 15  # Choose a larger odd number to smooth gradient measurements
-    # gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(30, 100))  # 20, 80
-    # grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(30, 100))  # 20, 80
-    # dir_binary = dir_threshold(gray, sobel_kernel=7, thresh=(0.7, 1.3))  # doesn't work for harder_challenge_video
-
-    # mag_binary = mag_thresh(gray, sobel_kernel=15, mag_thresh=(30, 100))  # 20, 100
-    # hls_asphalt = hls_select(image, hthresh=(100, 200), ithresh=(0, 255), sthresh=(0, 255))  # Asphalt color
-
-    # hls_yellow = hls_select(image, hthresh=(10, 30), ithresh=(50, 230), sthresh=(50, 255))  # yellow line all
-    hls_yellow1 = hls_select(image, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
-    hls_yellow2 = hls_select(image, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
-
-    # OK but short
+    # 1) White Line
     rgb_white = rgb_select(image, rthresh=(200, 255), gthresh=(200, 255), bthresh=(200, 255))  # white line
     rgb_excess = rgb_select(image, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
 
+    # 2) Yellow Line
+    hls_yellow1 = hls_select(image, hthresh=(10, 30), ithresh=(50, 150), sthresh=(30, 255))  # yellow line dark
+    hls_yellow2 = hls_select(image, hthresh=(20, 30), ithresh=(120, 250), sthresh=(30, 255))  # yellow line light
+
     # combined = np.zeros_like(dir_binary)
     combined = np.zeros((rgb_white.shape), dtype=np.uint8)
-    # # XX combined[((gradx == 1) | (grady == 1))] = 1  # shallow edge
     combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 1  # yellow line
     combined[((rgb_white == 1) & (rgb_excess != 1))] = 1  # White line
-    # combined[((mag_binary == 1) & (hls_asphalt != 1))] = 1  # none Asphalt edge
+
     return combined
 
 
-def create_binary_image_2nd(image):
-    # 1) Convert to grayscale
+def create_binary_image(image):
+    """
+    output a binary image that show lane lines
+    """
+    # 1) Line Edge
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    # gray = gaussian_blur(gray, kernel_size=5)
-
-    # Apply each of the thresholding functions
     ksize = 3  # Choose a larger odd number to smooth gradient measurements
     gradx = abs_sobel_thresh(gray, orient='x', sobel_kernel=ksize, sobel_thresh=(25, 50))
     grady = abs_sobel_thresh(gray, orient='y', sobel_kernel=ksize, sobel_thresh=(50, 150))
@@ -256,20 +231,11 @@ def create_binary_image_2nd(image):
     rgb_excess = rgb_select(image, rthresh=(250, 255), gthresh=(250, 255), bthresh=(250, 255))  # white line
 
     # 3) Concrete
-    # hls_concrete = hls_select(image, hthresh=(50, 100), ithresh=(0, 255), sthresh=(90, 190))  # Asphalt color
-    
-
     hls_binary2 = hls_select(image, hthresh=(50, 100), ithresh=(0, 255), sthresh=(90, 190))  # shadow
-
 
     # combined = np.zeros_like(dir_binary)
     combined = np.zeros((mag_binary.shape), dtype=np.uint8)
-    # combined[((hls_yellow1 == 1) | (hls_yellow2 == 1))] = 1  # yellow line
-    # combined[((rgb_white == 1) & (rgb_excess != 1))] = 1  # White line
-
-    # combined[((gradx == 1) | (grady == 1) | ((mag_binary == 1) & (dir_binary == 1)) | (hls_binary == 1))] = 1
     combined[((gradx == 1) | (grady == 1) | ((mag_binary == 1) & (dir_binary == 1)) | (hls_binary == 1)) & (hls_binary2 != 1)] = 1
-
 
     return combined
 
@@ -338,14 +304,14 @@ def sliding_windows_search(image):
         # Identify window boundaries in x and y (and right and left)
         if window == 0:
             win_y_low = image.shape[0] - (window + 1) * window_height
-            win_y_high = image.shape[0] - window * window_height  + window_height // 2
+            win_y_high = image.shape[0] - window * window_height + window_height // 2
             win_xleft_low = leftx_current - int(margin * 1.5)
             win_xleft_high = leftx_current + int(margin * 1.5)
             win_xright_low = rightx_current - int(margin * 1.5)
             win_xright_high = rightx_current + int(margin * 1.5)
         else:
             win_y_low = image.shape[0] - (window + 1) * window_height
-            win_y_high = image.shape[0] - window * window_height  + window_height // 2
+            win_y_high = image.shape[0] - window * window_height + window_height // 2
             win_xleft_low = leftx_current - margin
             win_xleft_high = leftx_current + margin
             win_xright_low = rightx_current - margin
@@ -523,7 +489,7 @@ def sanity_chack_polynomial(fit, pre_fit, thresh0=(-0.0007, 0.0007), thresh1=(-0
 
     return True, fit
 
-def sanity_chack_curverad(left_curverad, right_curverad, diff_curverad_thresh=50):
+def sanity_chack_curverad(left_curverad, right_curverad, diff_curverad_thresh=40):
     global pre_left_curverad, pre_right_curverad
     if pre_left_curverad == 0 or pre_right_curverad == 0:
         pre_left_curverad = left_curverad
@@ -532,43 +498,30 @@ def sanity_chack_curverad(left_curverad, right_curverad, diff_curverad_thresh=50
 
     diff_left_curverad = 100 * abs(pre_left_curverad - left_curverad) / pre_left_curverad
     diff_right_curverad = 100 * abs(pre_right_curverad - right_curverad) / pre_right_curverad
-    # diff_left_curverad = 100 * abs(pre_left_curverad - left_curverad) / min(pre_left_curverad, left_curverad)
-    # diff_right_curverad = 100 * abs(pre_right_curverad - right_curverad) / min(pre_right_curverad, right_curverad)
-    
-    # diff = abs(pre_left_curverad - left_curverad)
-    # deno = min(pre_left_curverad, left_curverad)
-    # print('  curv L:{:7.1f}, {:7.1f} : {:7.1f} / {:7.1f} -> {:7.1f}%'.format(pre_left_curverad, left_curverad, diff, deno, diff_left_curverad), end='')
-
-    # diff = abs(pre_right_curverad - right_curverad)
-    # deno = min(pre_right_curverad, right_curverad)
-    # print('  curv R:{:7.1f}, {:7.1f} : {:7.1f} / {:7.1f} -> {:7.1f}%'.format(pre_right_curverad, right_curverad, diff, deno, diff_right_curverad), end='')
 
     left_validity = True
     right_validity = True
 
     if diff_curverad_thresh < diff_left_curverad:
         left_validity = False
-    # else:
-    #     pre_left_curverad = left_curverad
     if diff_curverad_thresh < diff_right_curverad:
         right_validity = False
-    # else:
-    #     pre_right_curverad = right_curverad
 
     pre_left_curverad = left_curverad
     pre_right_curverad = right_curverad
 
-    print('  diff L:{:5.1f}%, R:{:5.1f}%'.format(diff_left_curverad, diff_right_curverad), end='')
+    # print('  diff L:{:5.1f}%, R:{:5.1f}%'.format(diff_left_curverad, diff_right_curverad), end='')
 
     return left_validity, right_validity
 
 
 def sanity_chack_roadwidth(left_fitx, right_fitx, thresh0=(300, 1200), thresh1=(300, 1200), thresh2=(300, 1200)):
+
     road_width0 = right_fitx[0] - left_fitx[0]
     road_width1 = right_fitx[len(right_fitx)//2] - left_fitx[len(left_fitx)//2]
     road_width2 = right_fitx[-1] - left_fitx[-1]
 
-    print('   Road {:4.0f} {:4.0f} {:4.0f}'.format(road_width0, road_width1, road_width2), end='')
+    # print('   Road {:4.0f} {:4.0f} {:4.0f}'.format(road_width0, road_width1, road_width2), end='')
 
     if road_width0 < thresh0[0] or thresh0[1] < road_width0:
         return False
@@ -580,14 +533,6 @@ def sanity_chack_roadwidth(left_fitx, right_fitx, thresh0=(300, 1200), thresh1=(
     return True
 
 
-# left_fit = [0, 0, 360]
-# right_fit = [0, 0, 920]
-# left_curverad = 0
-# right_curverad = 0
-# pre_left_curverad = 0
-# pre_right_curverad = 0
-
-
 def process_image(image, weight=0.5):
 
     # 1) Undistort using mtx and dist
@@ -597,8 +542,8 @@ def process_image(image, weight=0.5):
     # undist = image
 
     # 3) Create binary image via Combining Threshold
-    combined = create_binary_image(undist)
-    # combined = create_binary_image_2nd(undist)
+    combined = create_binary_image_light(undist)
+    # combined = create_binary_image(undist)
     # combined *= 255
     # return cv2.cvtColor(combined, cv2.COLOR_GRAY2RGB)  # debug code
 
@@ -639,8 +584,8 @@ def process_image(image, weight=0.5):
     #     for x, y in zip(right_fitx, ploty):
     #         cv2.circle(out_img, (int(x), int(y)), 1, color=[200, 200, 255], thickness=1)
 
-    print('L:{:+.4f}, {:+.3f}, {:6.1f}  '.format(c_left_fit[0], c_left_fit[1], c_left_fit[2]), end='')
-    print('R:{:+.4f}, {:+.3f}, {:6.1f}'.format(c_right_fit[0], c_right_fit[1], c_right_fit[2]), end='')
+    # print('L:{:+.4f}, {:+.3f}, {:6.1f}  '.format(c_left_fit[0], c_left_fit[1], c_left_fit[2]), end='')
+    # print('R:{:+.4f}, {:+.3f}, {:6.1f}'.format(c_right_fit[0], c_right_fit[1], c_right_fit[2]), end='')
     # return out_img
 
 
@@ -654,30 +599,29 @@ def process_image(image, weight=0.5):
 
     # 6-1) Define conversions in x and y from pixels space to meters
     ym_per_pix = 30 / 720 # meters per pixel in y dimension
-    xm_per_pix = 3.66 / 700 # meters per pixel in x dimension
+    xm_per_pix = 3.7 / 700 # meters per pixel in x dimension
     c_left_curverad = measure_curvature(left_fitx, ploty, ym_per_pix=ym_per_pix, xm_per_pix=xm_per_pix)
     c_right_curverad = measure_curvature(right_fitx, ploty, ym_per_pix=ym_per_pix, xm_per_pix=xm_per_pix)
-
-    print('  Curv {:7.1f} {:7.1f}'.format(c_left_curverad, c_right_curverad), end='')
-
     if left_curverad == 0:
         left_curverad = c_left_curverad
     if right_curverad == 0:
         right_curverad = c_right_curverad
 
+    # print('  Curve {:7.1f} {:7.1f}'.format(c_left_curverad, c_right_curverad), end='')
 
 
     # 7) Sanity Check
-    c_left_validity, pre_left_fit = sanity_chack_polynomial(c_left_fit, pre_left_fit)
-    c_right_validity, pre_right_fit = sanity_chack_polynomial(c_right_fit, pre_right_fit)
+    # 7-1) Checking that they have stable coefficients
+    c_left_validity, pre_left_fit = sanity_chack_polynomial(c_left_fit, pre_left_fit, thresh0=(-0.0007, 0.0007), thresh1=(-0.5, 0.5), thresh2=(-200, 200))
+    c_right_validity, pre_right_fit = sanity_chack_polynomial(c_right_fit, pre_right_fit, thresh0=(-0.0007, 0.0007), thresh1=(-0.5, 0.5), thresh2=(-200, 200))
     if not c_left_validity:
         left_validity = False
     if not c_right_validity:
         right_validity = False
 
 
-    # 7-1) Checking that they have similar curvature
-    c_left_validity, c_right_validity = sanity_chack_curverad(c_left_curverad, c_right_curverad)
+    # 7-2) Checking that they have similar curvature
+    c_left_validity, c_right_validity = sanity_chack_curverad(c_left_curverad, c_right_curverad, diff_curverad_thresh=30)
     if not c_left_validity:
         left_validity = False
     if not c_right_validity:
@@ -685,10 +629,9 @@ def process_image(image, weight=0.5):
 
 
     # 7-2) Checking that they are separated by approximately the right distance horizontally
-
     # 7-3) Checking that they are roughly parallel
-    c_validity = sanity_chack_roadwidth(left_fitx, right_fitx, thresh0=(300, 1200), thresh1=(300, 1200), thresh2=(300, 1200))
-    if not c_validity:
+    c_validity = sanity_chack_roadwidth(left_fitx, right_fitx, thresh0=(200, 1180), thresh1=(400, 1050), thresh2=(500, 780))  # 640 at horizontal road
+    if left_validity and right_validity and not c_validity:
         right_validity = False
         left_validity = False
 
@@ -696,22 +639,18 @@ def process_image(image, weight=0.5):
 
 
     # 7-4) Update Fitting Data
-    # if c_left_fit[2] != 0 and left_validity:
-    #     left_fit = (left_fit + c_left_fit) / 2
-    # if c_right_fit[2] != 0 and right_validity:
-    #     right_fit = (right_fit + c_right_fit) / 2
-    if left_validity:
-        left_fit = c_left_fit
-    if right_validity:
-        right_fit = c_right_fit
+    if c_left_fit[2] != 0 and left_validity:
+        left_fit = (left_fit + c_left_fit) / 2
+    if c_right_fit[2] != 0 and right_validity:
+        right_fit = (right_fit + c_right_fit) / 2
+    # if left_validity:
+    #     left_fit = c_left_fit
+    # if right_validity:
+    #     right_fit = c_right_fit
 
-    left_fitx, right_fitx, ploty = fit_quadratic_polynomial(left_fit, right_fit, binary_warped)
-
-    print('  poly ', end='')
-    print('L:{:+.4f}, {:+.3f}, {:6.1f}  '.format(left_fit[0], left_fit[1], left_fit[2]), end='')
-    print('R:{:+.4f}, {:+.3f}, {:6.1f}'.format(right_fit[0], right_fit[1], right_fit[2]), end='')
-
-
+    # print('  poly ', end='')
+    # print('L:{:+.4f}, {:+.3f}, {:6.1f}  '.format(left_fit[0], left_fit[1], left_fit[2]), end='')
+    # print('R:{:+.4f}, {:+.3f}, {:6.1f}'.format(right_fit[0], right_fit[1], right_fit[2]), end='')
 
     # Display latest Fitting Curves
     # left_fitx = left_fit[0] * ploty**2 + left_fit[1] * ploty + left_fit[2]
@@ -724,40 +663,39 @@ def process_image(image, weight=0.5):
 
 
     # 7-5) Determine Curvature Value
-    if left_curverad == 0 and left_validity:
+    if left_curverad == 0 or left_validity:
         left_curverad = c_left_curverad
-    if right_curverad == 0 and right_validity:
+    if right_curverad == 0 or right_validity:
         right_curverad = c_right_curverad
 
     # print('  Curv {:6.1f} {:6.1f}'.format(left_curverad, right_curverad), end='')
 
 
 
-    if not left_validity or not right_validity:
-        print('  invalid:', end='')
-    if not left_validity:
-        print(' Left', end='')
-    if not right_validity:
-        print(' Right', end='')
-
-    print()
-
-
-
     # 7-6) Detect offset of the car position
+    left_fitx, right_fitx, ploty = fit_quadratic_polynomial(left_fit, right_fit, binary_warped)
     lane_center = (left_fitx[-1] + right_fitx[-1]) / 2
     vehicle_offset = 1280 / 2 - lane_center
     vehicle_offset *= xm_per_pix
-    # print('  offset {:8.1f}m, curvature left:{:8.1f}m,  right:{:8.1f}m'.format(vehicle_offset, left_curverad, right_curverad))
+
+    # print('  offset {:8.1f}m, curvature left:{:8.1f}m,  right:{:8.1f}m'.format(vehicle_offset, left_curverad, right_curverad), end='')
     # Example values: 632.1 m    626.2 m
+
+    # if not left_validity or not right_validity:
+    #     print('  invalid:', end='')
+    # if not left_validity:
+    #     print(' Left', end='')
+    # if not right_validity:
+    #     print(' Right', end='')
+    # print()
 
 
     # Display
-    for lx, rx, y in zip(left_fitx, right_fitx, ploty):
-        cv2.circle(out_img, (int(lx), int(y)), 1, color=[255, 200, 200], thickness=4)
-        cv2.circle(out_img, (int(rx), int(y)), 1, color=[200, 200, 255], thickness=4)
-    cv2.line(out_img, (int(lane_center), 0), (int(lane_center), 719), color=[200, 200, 200], thickness=4)
-    cv2.line(out_img, (out_img.shape[1]//2, 0), (out_img.shape[1]//2, out_img.shape[0] - 1), color=[255, 255, 255], thickness=1)
+    # for lx, rx, y in zip(left_fitx, right_fitx, ploty):
+    #     cv2.circle(out_img, (int(lx), int(y)), 1, color=[255, 200, 200], thickness=4)
+    #     cv2.circle(out_img, (int(rx), int(y)), 1, color=[200, 200, 255], thickness=4)
+    # cv2.line(out_img, (int(lane_center), 0), (int(lane_center), 719), color=[200, 200, 200], thickness=4)
+    # cv2.line(out_img, (out_img.shape[1]//2, 0), (out_img.shape[1]//2, out_img.shape[0] - 1), color=[255, 255, 255], thickness=1)
     # return out_img  # debug code
 
 
@@ -834,7 +772,7 @@ for l in range(1, 20):
             # if frameno % 1 == 0 and ((520 <= frameno and frameno < 620) or (950 <= frameno and frameno < 1100)):
             # if frameno % 2 == 0 and ((530 <= frameno and frameno < 620) or (950 <= frameno and frameno < 1100)):
             # if 510 <= frameno and frameno < 590 and frameno % 5 == 0 and frameno < 640:
-            if frameno % 2 == 0 and frameno < 1500:
+            if frameno % 1 == 0 and frameno < 1500:
                 # print('frameno: {:5.0f}'.format(frameno))
                 result = process_image(frame)
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)

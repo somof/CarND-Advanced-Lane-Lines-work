@@ -13,7 +13,7 @@ all:
 	${PYTHONC} project_code04.py
 
 run: 
-	${PYTHONC} project_code04_2.py
+	${PYTHONC} project_code04_4.py
 
 calib:
 	${PYTHONC} project_code01.py
