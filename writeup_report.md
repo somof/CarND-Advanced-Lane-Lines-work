@@ -373,7 +373,7 @@ and then the car position in the lane is calculated, at line 413-435.
 
 ###2.6. An example image plotted back down onto the road the lane area
 
-This code output an overlaied image for each frames at line 437-471.
+This code output an overlaied image for each frames at line 441-475.
 
     # 8)Drawing
 
