@@ -348,7 +348,7 @@ def process_image(image, weight=0.5):
     undist = cv2.undistort(image, mtx, dist, None, mtx)
 
     # 2) Create binary image via Combining Threshold
-    combined = create_binary_image_light(undist)
+    combined = create_binary_image(undist)
 
     # 3) Perspective Transform
     binary_warped = warper(combined, M)
@@ -376,7 +376,7 @@ def process_image(image, weight=0.5):
     global pre_left_curverad, pre_right_curverad
 
     ym_per_pix = 30 / 720  # meters per pixel in y dimension
-    xm_per_pix = 3.7 / 700  # meters per pixel in x dimension
+    xm_per_pix = 3.7 / 575  # meters per pixel in x dimension
 
     c_left_curverad = measure_curvature(left_fitx, ploty, ym_per_pix=ym_per_pix, xm_per_pix=xm_per_pix)
     c_right_curverad = measure_curvature(right_fitx, ploty, ym_per_pix=ym_per_pix, xm_per_pix=xm_per_pix)
@@ -397,7 +397,7 @@ def process_image(image, weight=0.5):
         right_validity = False
 
     # 6-2) Checking that they have similar curvature
-    c_left_validity, c_right_validity = sanity_chack_curverad(c_left_curverad, c_right_curverad, diff_curverad_thresh=30)
+    c_left_validity, c_right_validity = sanity_chack_curverad(c_left_curverad, c_right_curverad, diff_curverad_thresh=70)
     if not c_left_validity:
         left_validity = False
     if not c_right_validity:
@@ -414,13 +414,17 @@ def process_image(image, weight=0.5):
 
     # 7-1) Update Fitting Data
     if c_left_fit[2] != 0 and left_validity:
-        left_fit = (left_fit + c_left_fit) / 2
+        left_fit_fifo[0][:] = left_fit_fifo[1][:]
+        left_fit_fifo[1][:] = left_fit_fifo[2][:]
+        left_fit_fifo[2][:] = left_fit_fifo[3][:]
+        left_fit_fifo[3][:] = np.array(c_left_fit)
+        left_fit = list((left_fit_fifo[1] + left_fit_fifo[2] + left_fit_fifo[3]) / 3)
     if c_right_fit[2] != 0 and right_validity:
-        right_fit = (right_fit + c_right_fit) / 2
-    # if left_validity:
-    #     left_fit = c_left_fit
-    # if right_validity:
-    #     right_fit = c_right_fit
+        right_fit_fifo[0][:] = right_fit_fifo[1][:]
+        right_fit_fifo[1][:] = right_fit_fifo[2][:]
+        right_fit_fifo[2][:] = right_fit_fifo[3][:]
+        right_fit_fifo[3][:] = np.array(c_right_fit)
+        right_fit = list((right_fit_fifo[1] + right_fit_fifo[2] + right_fit_fifo[3]) / 3)
 
     # 7-2) Determine Curvature Value
     if left_curverad == 0 or left_validity:
@@ -481,7 +485,8 @@ def process_image(image, weight=0.5):
 # perspective_src = np.float32([[585, 460], [695, 460], [1127, 700], [203, 700]])  # ignore bonnet
 # perspective_src = np.float32([[582, 460], [698, 460], [1127, 695], [203, 695]])  # a little adjustment
 # perspective_src = np.float32([[585, 460], [695, 460], [1127, 695], [203, 695]])  # a little adjustment
-perspective_src = np.float32([[585, 460], [695, 460], [1127, 685], [203, 685]])  # prevent bonnnet
+# perspective_src = np.float32([[585, 460], [695, 460], [1127, 685], [203, 685]])  # prevent bonnnet
+perspective_src = np.float32([[585, 460], [695, 460], [1127, 705], [203, 705]])  # adjust
 # perspective_src = np.float32([[600, 440], [640, 440], [1105, 675], [295, 675]])  # trial
 
 (width, height) = (1280, 720)
@@ -500,11 +505,14 @@ trapezoid.append([[perspective_src[1][0], perspective_src[1][1], perspective_src
 trapezoid.append([[perspective_src[2][0], perspective_src[2][1], perspective_src[3][0], perspective_src[3][1]]])
 trapezoid.append([[perspective_src[3][0], perspective_src[3][1], perspective_src[0][0], perspective_src[0][1]]])
 
-for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+# for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video.mp4'):
+for file in ('project_video.mp4',):
     clip1 = VideoFileClip('../' + file)
 
     left_fit = [0, 0, 360]
     right_fit = [0, 0, 920]
+    left_fit_fifo = np.array([left_fit, left_fit, left_fit, left_fit]).astype(np.float)
+    right_fit_fifo = np.array([right_fit, right_fit, right_fit, right_fit]).astype(np.float)
     pre_left_fit = [0, 0, 0]
     pre_right_fit = [0, 0, 0]
 
@@ -516,6 +524,9 @@ for file in ('project_video.mp4', 'challenge_video.mp4', 'harder_challenge_video
     frameno = 0
     for frame in clip1.iter_frames():
         if frameno % 1 == 0 and frameno < 1500:
+        # if (frameno % 4 == 0 and
+        #     ((470 <= frameno and frameno < 610) or
+        #      (950 <= frameno and frameno < 1150))):
             # print('frameno: {:5.0f}'.format(frameno))
             result = process_image(frame)
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
